@@ -43,6 +43,8 @@ import {
   Unplug,
   FastForward,
   Signal,
+  Inbox,
+  Battery,
 } from "lucide-react";
 
 // --- Firebase Config & Init ---
@@ -92,7 +94,6 @@ const SUITS = {
   },
 };
 
-// Suit Order for Sorting
 const SUIT_ORDER = { BLUE: 0, GREEN: 1, MAGENTA: 2, SILVER: 3 };
 
 // --- Helper Functions ---
@@ -189,21 +190,21 @@ const LeaveConfirmModal = ({
       <div className="flex flex-col gap-3">
         <button
           onClick={onCancel}
-          className="bg-gray-700 hover:bg-gray-600 text-white py-3 rounded font-bold"
+          className="bg-gray-700 hover:bg-gray-600 text-white py-3 rounded font-bold transition-colors"
         >
           Stay Sync'd
         </button>
         {inGame && isHost && (
           <button
             onClick={onConfirmLobby}
-            className="py-3 rounded font-bold bg-fuchsia-700 hover:bg-fuchsia-600 text-white flex items-center justify-center gap-2"
+            className="py-3 rounded font-bold bg-fuchsia-700 hover:bg-fuchsia-600 text-white flex items-center justify-center gap-2 transition-colors"
           >
             <Home size={18} /> Return to Backroom
           </button>
         )}
         <button
           onClick={onConfirmLeave}
-          className="bg-red-600 hover:bg-red-500 text-white py-3 rounded font-bold flex items-center justify-center gap-2"
+          className="bg-red-600 hover:bg-red-500 text-white py-3 rounded font-bold flex items-center justify-center gap-2 transition-colors"
         >
           <LogOut size={18} /> Sever Connection
         </button>
@@ -389,7 +390,7 @@ export default function SpectrumGame() {
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   const [feedbackOverlay, setFeedbackOverlay] = useState(null);
-  const [playMode, setPlayMode] = useState("NORMAL"); // NORMAL or FACEDOWN
+  const [playMode, setPlayMode] = useState("NORMAL");
 
   useEffect(() => {
     const initAuth = async () => {
@@ -425,7 +426,6 @@ export default function SpectrumGame() {
     return () => unsub();
   }, [roomId, user]);
 
-  // Host-Authority Trigger for Trick Resolution
   useEffect(() => {
     if (!gameState || !user || gameState.status !== "playing") return;
     const isHost = gameState.hostId === user.uid;
@@ -468,6 +468,7 @@ export default function SpectrumGame() {
       turnIndex: 0,
       roundCount: 1,
       logs: [],
+      reserve: 0,
     };
     await setDoc(
       doc(db, "artifacts", APP_ID, "public", "data", "rooms", newId),
@@ -498,6 +499,11 @@ export default function SpectrumGame() {
     const data = snap.data();
     if (data.status !== "lobby") {
       setError("Session locked");
+      setLoading(false);
+      return;
+    }
+    if (data.players.length >= 4) {
+      setError("Backroom Full");
       setLoading(false);
       return;
     }
@@ -545,7 +551,7 @@ export default function SpectrumGame() {
         scorePile: [],
         scoreTotal: 0,
         busted: false,
-        ready: false, // Reset ready state for new round
+        ready: false,
       };
     });
 
@@ -564,7 +570,7 @@ export default function SpectrumGame() {
         roundResult: null,
         roundCount: isNextRound ? increment(1) : gameState.roundCount,
         logs: arrayUnion({
-          text: `Initializing Round ${
+          text: `Initialized Frequency Sync: Round ${
             isNextRound ? gameState.roundCount + 1 : gameState.roundCount
           }`,
           type: "neutral",
@@ -573,29 +579,58 @@ export default function SpectrumGame() {
     );
   };
 
-  // Restart Logic (Resets Chips but keeps players)
   const restartGame = async () => {
     if (!gameState || gameState.hostId !== user.uid) return;
 
-    const resetPlayers = gameState.players.map((p) => ({
-      ...p,
-      chips: 5,
-      hand: [],
-      scorePile: [],
-      scoreTotal: 0,
-      busted: false,
-      ready: false,
-    }));
+    const playerCount = gameState.players.length;
+    const cardsPerSuit = playerCount === 3 ? 9 : 13;
+    const deck = [];
+    Object.keys(SUITS).forEach((suitKey) => {
+      for (let i = 1; i <= cardsPerSuit; i++) {
+        deck.push({ suit: suitKey, val: i });
+      }
+    });
+
+    const shuffled = shuffle(deck);
+    const handSize = Math.floor(shuffled.length / playerCount);
+
+    const resetPlayers = gameState.players.map((p) => {
+      const hand = [];
+      for (let i = 0; i < handSize; i++) {
+        hand.push(shuffled.pop());
+      }
+      return {
+        ...p,
+        chips: 5,
+        hand,
+        scorePile: [],
+        scoreTotal: 0,
+        busted: false,
+        ready: false,
+      };
+    });
 
     await updateDoc(
       doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId),
       {
+        status: "playing",
+        deck: shuffled,
         players: resetPlayers,
+        trick: [],
+        leadSuit: null,
+        turnIndex: 0,
         roundCount: 1,
-        status: "lobby", // Go to lobby first to trigger startRound manually or just start directly
-        logs: [{ text: "--- GRID REBOOTED: NEW SESSION ---", type: "neutral" }],
+        reserve: 0,
+        roundResult: null,
+        logs: [
+          {
+            text: "--- GRID REBOOTED: COMMENCING NEW OPERATION ---",
+            type: "neutral",
+          },
+        ],
       }
     );
+    setShowLeaveConfirm(false);
   };
 
   const setPlayerReady = async () => {
@@ -671,6 +706,10 @@ export default function SpectrumGame() {
 
     const nextTurn = (gameState.turnIndex + 1) % gameState.players.length;
 
+    const logText = faceDown
+      ? `📡 ${me.name} initiated MAGENTA_OVERRIDE (MASKED)`
+      : `📡 ${me.name} transmitted signal: ${card.suit} ${card.val}`;
+
     await updateDoc(
       doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId),
       {
@@ -678,8 +717,11 @@ export default function SpectrumGame() {
         trick: newTrick,
         leadSuit: newLeadSuit,
         turnIndex: nextTurn,
+        logs: arrayUnion({ text: logText, type: "neutral" }),
       }
     );
+
+    setPlayMode("NORMAL");
   };
 
   const resolveTrick = async (trick, currentPlayers, leadSuit) => {
@@ -708,9 +750,17 @@ export default function SpectrumGame() {
     const winningCard = trick.find((t) => t.playerId === winnerId);
     const cardValAdded = winningCard.faceDown ? 5 : winningCard.val;
 
+    const newLogs = [];
+
     const updatedPlayers = currentPlayers.map((p, idx) => {
       if (idx === winnerIdx) {
         const nt = p.scoreTotal + cardValAdded;
+        if (nt > 25) {
+          newLogs.push({
+            text: `⚠️ SYSTEM_OVERLOAD: ${p.name} BUSTED at ${nt} Equilibrium`,
+            type: "danger",
+          });
+        }
         return {
           ...p,
           scorePile: [...p.scorePile, winningCard],
@@ -725,6 +775,8 @@ export default function SpectrumGame() {
 
     if (roundEnds) {
       const finalPlayers = JSON.parse(JSON.stringify(updatedPlayers));
+      const playerCount = finalPlayers.length;
+      const rewards = playerCount === 3 ? [2, 1, 0] : [3, 2, 1, 0];
 
       const scoreGroups = {};
       finalPlayers
@@ -738,34 +790,86 @@ export default function SpectrumGame() {
       const sortedDiffs = Object.keys(scoreGroups)
         .map(Number)
         .sort((a, b) => a - b);
-      const rewards = [3, 2, 1];
-      const closestDiff = sortedDiffs[0];
-      const firstWinners = scoreGroups[closestDiff] || [];
+      let nextReserve = gameState.reserve || 0;
+      const firstPlaceWinners = scoreGroups[sortedDiffs[0]] || [];
+      const singleWinner = firstPlaceWinners.length === 1;
 
-      sortedDiffs.forEach((diff, rankIdx) => {
-        if (rankIdx < rewards.length) {
-          const rewardValue = rewards[rankIdx];
-          scoreGroups[diff].forEach((pid) => {
-            const pIdx = finalPlayers.findIndex((x) => x.id === pid);
-            finalPlayers[pIdx].chips += rewardValue;
-            if (diff === 0) finalPlayers[pIdx].chips += 1;
+      let currentRank = 0;
+      sortedDiffs.forEach((diff) => {
+        const unitsInTie = scoreGroups[diff].length;
+        const rewardValue = rewards[currentRank] || 0;
+        const rankLabel =
+          ["1st", "2nd", "3rd", "4th"][currentRank] || `${currentRank + 1}th`;
+
+        scoreGroups[diff].forEach((pid) => {
+          const pIdx = finalPlayers.findIndex((x) => x.id === pid);
+          finalPlayers[pIdx].chips += rewardValue;
+
+          newLogs.push({
+            text: `📊 ${finalPlayers[pIdx].name} placed ${rankLabel} (${finalPlayers[pIdx].scoreTotal} pts) -> +${rewardValue} chips`,
+            type: "success",
+          });
+
+          if (diff === 0) {
+            if (singleWinner) {
+              finalPlayers[pIdx].chips += 1;
+              newLogs.push({
+                text: `🎯 PERFECT_SYNC: ${finalPlayers[pIdx].name} hit 25! (+1 bonus)`,
+                type: "success",
+              });
+            } else {
+              nextReserve += 1;
+              newLogs.push({
+                text: `🔋 TIE_OVERFLOW: Tied perfect score of 25. 1 bonus moved to Extra Chips tray.`,
+                type: "neutral",
+              });
+            }
+          }
+        });
+        currentRank += unitsInTie;
+      });
+
+      finalPlayers.forEach((p, i) => {
+        if (p.busted) {
+          finalPlayers[i].chips -= 1;
+          nextReserve += 1;
+          newLogs.push({
+            text: `⚠️ SYSTEM_BUST: ${p.name} (${p.scoreTotal} pts) forfeited 1 chip to Extra Chips tray.`,
+            type: "danger",
           });
         }
       });
 
-      updatedPlayers.forEach((p, i) => {
-        if (p.busted) {
-          finalPlayers[i].chips -= 1;
-          if (firstWinners.length > 0) {
-            const wIdx = finalPlayers.findIndex(
-              (x) => x.id === firstWinners[0]
-            );
-            finalPlayers[wIdx].chips += 1;
-          }
+      if (singleWinner) {
+        const winIdx = finalPlayers.findIndex(
+          (x) => x.id === firstPlaceWinners[0]
+        );
+        if (nextReserve > 0) {
+          newLogs.push({
+            text: `⚡ RESERVE_ACQUIRED: ${finalPlayers[winIdx].name} collected ${nextReserve} Extra Chips!`,
+            type: "success",
+          });
+          finalPlayers[winIdx].chips += nextReserve;
+          nextReserve = 0;
         }
-      });
+      } else if (nextReserve > 0) {
+        newLogs.push({
+          text: `🔋 TRAY_UPDATE: Extra Chips tray now at ${nextReserve} units (Tied Winner Lock)`,
+          type: "neutral",
+        });
+      }
 
-      const isProtocolComplete = gameState.roundCount >= 4;
+      const isLastRound = gameState.roundCount >= 4;
+      if (isLastRound && !singleWinner && nextReserve > 0) {
+        newLogs.push({
+          text: `💥 SYSTEM_FLUSH: ${nextReserve} Extra Chips destroyed (No Clear Protocol Victor)`,
+          type: "danger",
+        });
+        nextReserve = 0;
+      }
+
+      const gameFinished =
+        isLastRound || finalPlayers.some((p) => p.chips >= 25);
 
       await updateDoc(
         doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId),
@@ -773,18 +877,20 @@ export default function SpectrumGame() {
           players: finalPlayers,
           trick: [],
           leadSuit: null,
-          status: isProtocolComplete ? "finished" : "playing",
+          status: gameFinished ? "finished" : "playing",
           turnIndex: null,
+          reserve: nextReserve,
           roundResult: {
             closest:
-              firstWinners.length > 1
+              firstPlaceWinners.length > 1
                 ? "MULTIPLE_UNITS"
-                : finalPlayers.find((p) => p.id === firstWinners[0])?.name ||
-                  "NONE",
-            total: closestDiff !== undefined ? 25 - closestDiff : 0,
+                : finalPlayers.find((p) => p.id === firstPlaceWinners[0])
+                    ?.name || "NONE",
+            total: sortedDiffs[0] !== undefined ? 25 - sortedDiffs[0] : 0,
+            reserve: nextReserve,
           },
-          logs: arrayUnion({
-            text: `Phase ${gameState.roundCount} Calibration Complete.`,
+          logs: arrayUnion(...newLogs, {
+            text: `--- Calibration Phase ${gameState.roundCount} Finalized ---`,
             type: "neutral",
           }),
         }
@@ -797,8 +903,8 @@ export default function SpectrumGame() {
           trick: [],
           leadSuit: null,
           turnIndex: winnerIdx,
-          logs: arrayUnion({
-            text: `${updatedPlayers[winnerIdx].name} secured trick (+${cardValAdded})`,
+          logs: arrayUnion(...newLogs, {
+            text: `✅ Trick secured by ${updatedPlayers[winnerIdx].name} (+${cardValAdded})`,
             type: "success",
           }),
         }
@@ -809,13 +915,19 @@ export default function SpectrumGame() {
   const handleLeaveRoom = async () => {
     if (!roomId) return;
     const ref = doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId);
-    if (gameState.hostId === user.uid) await deleteDoc(ref);
-    else
-      await updateDoc(ref, {
-        players: gameState.players.filter((p) => p.id !== user.uid),
-      });
+    try {
+      if (gameState?.hostId === user.uid) {
+        await deleteDoc(ref);
+      } else {
+        const newPlayers = gameState.players.filter((p) => p.id !== user.uid);
+        await updateDoc(ref, { players: newPlayers });
+      }
+    } catch (e) {
+      console.error(e);
+    }
     setRoomId("");
     setView("menu");
+    setShowLeaveConfirm(false);
   };
 
   if (!user)
@@ -899,7 +1011,7 @@ export default function SpectrumGame() {
             </h2>
             <button
               onClick={() => setShowLeaveConfirm(true)}
-              className="p-2 bg-red-900/20 hover:bg-red-900/40 rounded text-red-400"
+              className="p-2 bg-red-900/20 hover:bg-red-900/40 rounded text-red-400 transition-colors"
             >
               <LogOut size={16} />
             </button>
@@ -959,6 +1071,8 @@ export default function SpectrumGame() {
 
   if (view === "game" && gameState) {
     const me = gameState.players.find((p) => p.id === user.uid);
+    if (!me) return null;
+
     const isMyTurn =
       gameState.turnIndex !== null &&
       gameState.players[gameState.turnIndex]?.id === user.uid;
@@ -987,16 +1101,28 @@ export default function SpectrumGame() {
         <FloatingBackground />
         {feedbackOverlay && <FeedbackOverlay {...feedbackOverlay} />}
         {showRules && <RulesModal onClose={() => setShowRules(false)} />}
+
         {showLeaveConfirm && (
           <LeaveConfirmModal
             onCancel={() => setShowLeaveConfirm(false)}
             onConfirmLeave={handleLeaveRoom}
-            onConfirmLobby={() =>
+            onConfirmLobby={() => {
+              const resetPlayers = gameState.players.map((p) => ({
+                ...p,
+                ready: false,
+              }));
               updateDoc(
                 doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId),
-                { status: "lobby" }
-              )
-            }
+                {
+                  status: "lobby",
+                  roundCount: 1,
+                  roundResult: null,
+                  reserve: 0,
+                  players: resetPlayers,
+                }
+              );
+              setShowLeaveConfirm(false);
+            }}
             isHost={isHost}
             inGame
           />
@@ -1010,21 +1136,29 @@ export default function SpectrumGame() {
             </span>
           </div>
           <div className="flex gap-2">
+            {gameState.reserve > 0 && (
+              <div className="flex items-center gap-1.5 bg-fuchsia-900/40 px-3 py-1 rounded-full border border-fuchsia-500/30 mr-2 animate-in fade-in slide-in-from-right-4 duration-500">
+                <Battery size={12} className="text-fuchsia-400" />
+                <span className="text-[10px] font-black text-fuchsia-300 uppercase tracking-tighter">
+                  EXTRA_CHIPS: {gameState.reserve}
+                </span>
+              </div>
+            )}
             <button
               onClick={() => setShowRules(true)}
-              className="p-2 hover:bg-gray-800 rounded text-gray-400"
+              className="p-2 hover:bg-gray-800 rounded text-gray-400 transition-colors"
             >
               <BookOpen size={18} />
             </button>
             <button
               onClick={() => setShowLogs(!showLogs)}
-              className="p-2 hover:bg-gray-800 rounded text-gray-400"
+              className="p-2 hover:bg-gray-800 rounded text-gray-400 transition-colors"
             >
               <History size={18} />
             </button>
             <button
               onClick={() => setShowLeaveConfirm(true)}
-              className="p-2 hover:bg-red-900/40 rounded text-red-400"
+              className="p-2 hover:bg-red-900/40 rounded text-red-400 transition-colors"
             >
               <LogOut size={18} />
             </button>
@@ -1039,11 +1173,13 @@ export default function SpectrumGame() {
               return (
                 <div
                   key={p.id}
-                  className={`bg-black/60 p-3 rounded-xl border-2 transition-all ${
+                  className={`bg-black/60 p-3 rounded-xl border-2 transition-all 
+                  ${
                     isActive
-                      ? "border-fuchsia-500 scale-105 shadow-xl shadow-fuchsia-900/20"
+                      ? "border-fuchsia-500 scale-105 shadow-xl shadow-fuchsia-900/40 animate-pulse"
                       : "border-gray-800"
-                  } ${p.busted ? "opacity-30 grayscale" : ""}`}
+                  } 
+                  ${p.busted ? "opacity-30 grayscale" : ""}`}
                 >
                   <div className="flex justify-between items-center mb-1">
                     <span className="font-black text-[10px] uppercase tracking-wider truncate max-w-[70px]">
@@ -1093,22 +1229,29 @@ export default function SpectrumGame() {
                   <h2 className="text-3xl font-serif font-black text-white mb-2 uppercase">
                     {gameState.roundResult.closest}
                   </h2>
-                  <p className="text-fuchsia-400 font-mono text-xs mb-8 uppercase tracking-tighter">
+                  <p className="text-fuchsia-400 font-mono text-xs mb-2 uppercase tracking-tighter">
                     Achieved Equilibrium ({gameState.roundResult.total}/25)
                   </p>
-                  {isHost ? (
-                    <button
-                      onClick={startRound}
-                      className="bg-fuchsia-700 hover:bg-fuchsia-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-fuchsia-900/30 transition-all"
-                    >
-                      <FastForward size={20} /> Initialize Phase{" "}
-                      {gameState.roundCount + 1}
-                    </button>
-                  ) : (
-                    <div className="text-gray-500 font-black animate-pulse uppercase tracking-[0.2em] text-[10px]">
-                      Awaiting host frequency shift...
-                    </div>
+                  {gameState.roundResult.reserve > 0 && (
+                    <p className="text-gray-500 font-mono text-[10px] mb-8 uppercase tracking-widest">
+                      Extra Chips Tray: {gameState.roundResult.reserve} units
+                    </p>
                   )}
+                  <div className="mt-8">
+                    {isHost ? (
+                      <button
+                        onClick={startRound}
+                        className="bg-fuchsia-700 hover:bg-fuchsia-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-fuchsia-900/30 transition-all"
+                      >
+                        <FastForward size={20} /> Initialize Phase{" "}
+                        {gameState.roundCount + 1}
+                      </button>
+                    ) : (
+                      <div className="text-gray-500 font-black animate-pulse uppercase tracking-[0.2em] text-[10px]">
+                        Awaiting host frequency shift...
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -1143,7 +1286,7 @@ export default function SpectrumGame() {
           </div>
 
           <div className="w-full bg-gray-900/98 border-t-2 border-fuchsia-500/20 p-4 md:p-6 rounded-t-[2.5rem] shadow-[0_-20px_50px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
               <div className="flex items-center gap-4">
                 <div
                   className={`px-5 py-3 rounded-2xl flex items-center gap-3 border transition-all ${
@@ -1178,10 +1321,10 @@ export default function SpectrumGame() {
               </div>
 
               {isMyTurn && !isRoundOver && (
-                <div className="flex bg-black/50 p-1.5 rounded-xl border border-gray-800">
+                <div className="flex bg-black/50 p-1.5 rounded-xl border border-gray-800 shadow-inner">
                   <button
                     onClick={() => setPlayMode("NORMAL")}
-                    className={`px-4 py-2 text-[8px] font-black tracking-widest uppercase rounded-lg transition-all ${
+                    className={`px-2 sm:px-4 py-2 text-[8px] font-black tracking-widest uppercase rounded-lg transition-all ${
                       playMode === "NORMAL"
                         ? "bg-fuchsia-600 text-white shadow-lg"
                         : "text-gray-500 hover:text-gray-400"
@@ -1191,7 +1334,7 @@ export default function SpectrumGame() {
                   </button>
                   <button
                     onClick={() => setPlayMode("FACEDOWN")}
-                    className={`px-4 py-2 text-[8px] font-black tracking-widest uppercase rounded-lg transition-all ${
+                    className={`px-2 sm:px-4 py-2 text-[8px] font-black tracking-widest uppercase rounded-lg transition-all ${
                       playMode === "FACEDOWN"
                         ? "bg-fuchsia-600 text-white shadow-lg"
                         : "text-gray-500 hover:text-gray-400"
@@ -1259,6 +1402,8 @@ export default function SpectrumGame() {
                     className={`text-[10px] font-mono p-2 border-l-2 bg-black/30 ${
                       l.type === "success"
                         ? "border-fuchsia-500 text-fuchsia-300"
+                        : l.type === "danger"
+                        ? "border-red-500 text-red-300"
                         : "border-gray-700 text-gray-500"
                     }`}
                   >
@@ -1270,7 +1415,6 @@ export default function SpectrumGame() {
           </div>
         )}
 
-        {/* --- FINISHED SCREEN REFINED --- */}
         {gameState.status === "finished" && (
           <div className="fixed inset-0 bg-black/95 z-[200] flex flex-col items-center justify-center p-4 backdrop-blur-2xl">
             <div className="relative mb-10">
@@ -1278,10 +1422,9 @@ export default function SpectrumGame() {
                 size={100}
                 className="text-yellow-400 drop-shadow-[0_0_30px_rgba(250,204,21,0.5)] animate-bounce"
               />
-              <Sparkles
-                size={32}
-                className="absolute -top-4 -right-4 text-fuchsia-400 animate-pulse"
-              />
+              <span className="absolute -top-4 -right-4 text-fuchsia-400 animate-pulse">
+                <Sparkles size={32} />
+              </span>
             </div>
 
             <h1 className="text-4xl md:text-6xl font-serif font-black text-white mb-2 uppercase tracking-[0.4em] text-center">
@@ -1294,7 +1437,7 @@ export default function SpectrumGame() {
               </p>
             </div>
 
-            <div className="w-full max-w-lg space-y-3 mb-16">
+            <div className="w-full max-w-lg space-y-3 mb-16 overflow-y-auto max-h-[30vh]">
               <h3 className="text-center text-[10px] font-black text-gray-600 uppercase tracking-[0.3em] mb-4">
                 Unit Summary
               </h3>
@@ -1360,7 +1503,11 @@ export default function SpectrumGame() {
                       <RotateCcw size={16} /> Reboot
                     </button>
                     <button
-                      onClick={() =>
+                      onClick={() => {
+                        const resetPlayers = gameState.players.map((p) => ({
+                          ...p,
+                          ready: false,
+                        }));
                         updateDoc(
                           doc(
                             db,
@@ -1371,9 +1518,16 @@ export default function SpectrumGame() {
                             "rooms",
                             roomId
                           ),
-                          { status: "lobby", roundCount: 1, roundResult: null }
-                        )
-                      }
+                          {
+                            status: "lobby",
+                            roundCount: 1,
+                            roundResult: null,
+                            reserve: 0,
+                            players: resetPlayers,
+                          }
+                        );
+                        setShowLeaveConfirm(false);
+                      }}
                       disabled={!allGuestsReady}
                       className={`py-5 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 border transition-all ${
                         allGuestsReady
