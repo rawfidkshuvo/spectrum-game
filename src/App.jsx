@@ -46,6 +46,7 @@ import {
   Inbox,
   Battery,
   Hammer,
+  Trash2, // Added Trash2 icon for the kick button
 } from "lucide-react";
 
 // --- Firebase Config & Init ---
@@ -57,12 +58,14 @@ const firebaseConfig = {
   messagingSenderId: "586559578902",
   appId: "1:586559578902:web:2f012b1619cb4ef46aa637",
 };
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
 const APP_ID = typeof __app_id !== "undefined" ? __app_id : "spectrum-fives";
 const GAME_ID = "24";
+
 // --- Game Constants ---
 const SUITS = {
   BLUE: {
@@ -415,6 +418,17 @@ export default function SpectrumGame() {
       (snap) => {
         if (snap.exists()) {
           const data = snap.data();
+
+          // --- KICK CHECK: If I am not in the player list, return to menu ---
+          const amIInRoom = data.players.some((p) => p.id === user.uid);
+          if (!amIInRoom) {
+            setRoomId("");
+            setView("menu");
+            setError("Signal Lost: Kicked by Host");
+            return;
+          }
+          // -----------------------------------------------------------------
+
           setGameState(data);
           if (data.status === "playing") setView("game");
           else if (data.status === "lobby") setView("lobby");
@@ -539,7 +553,6 @@ export default function SpectrumGame() {
 
   const startRound = async () => {
     if (!gameState || gameState.hostId !== user.uid) return;
-
     const playerCount = gameState.players.length;
     const cardsPerSuit = playerCount === 3 ? 9 : 13;
     const deck = [];
@@ -548,10 +561,8 @@ export default function SpectrumGame() {
         deck.push({ suit: suitKey, val: i });
       }
     });
-
     const shuffled = shuffle(deck);
     const handSize = Math.floor(shuffled.length / playerCount);
-
     const players = gameState.players.map((p) => {
       const hand = [];
       for (let i = 0; i < handSize; i++) {
@@ -566,10 +577,8 @@ export default function SpectrumGame() {
         ready: false,
       };
     });
-
     const isNextRound =
       gameState.status === "playing" || gameState.turnIndex === null;
-
     await updateDoc(
       doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId),
       {
@@ -593,7 +602,6 @@ export default function SpectrumGame() {
 
   const restartGame = async () => {
     if (!gameState || gameState.hostId !== user.uid) return;
-
     const playerCount = gameState.players.length;
     const cardsPerSuit = playerCount === 3 ? 9 : 13;
     const deck = [];
@@ -602,10 +610,8 @@ export default function SpectrumGame() {
         deck.push({ suit: suitKey, val: i });
       }
     });
-
     const shuffled = shuffle(deck);
     const handSize = Math.floor(shuffled.length / playerCount);
-
     const resetPlayers = gameState.players.map((p) => {
       const hand = [];
       for (let i = 0; i < handSize; i++) {
@@ -621,7 +627,6 @@ export default function SpectrumGame() {
         ready: false,
       };
     });
-
     await updateDoc(
       doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId),
       {
@@ -665,7 +670,6 @@ export default function SpectrumGame() {
       gameState.players[gameState.turnIndex].id !== user.uid
     )
       return;
-
     const me = gameState.players[gameState.turnIndex];
     const card = me.hand[index];
 
@@ -701,7 +705,6 @@ export default function SpectrumGame() {
     const updatedPlayers = [...gameState.players];
     const playerIdx = gameState.turnIndex;
     updatedPlayers[playerIdx].hand.splice(index, 1);
-
     const trickCard = {
       playerId: user.uid,
       playerName: me.name,
@@ -717,11 +720,9 @@ export default function SpectrumGame() {
     }
 
     const nextTurn = (gameState.turnIndex + 1) % gameState.players.length;
-
     const logText = faceDown
       ? `📡 ${me.name} initiated MAGENTA_OVERRIDE (MASKED)`
       : `📡 ${me.name} transmitted signal: ${card.suit} ${card.val}`;
-
     await updateDoc(
       doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId),
       {
@@ -732,7 +733,6 @@ export default function SpectrumGame() {
         logs: arrayUnion({ text: logText, type: "neutral" }),
       }
     );
-
     setPlayMode("NORMAL");
   };
 
@@ -763,7 +763,6 @@ export default function SpectrumGame() {
     const cardValAdded = winningCard.faceDown ? 5 : winningCard.val;
 
     const newLogs = [];
-
     const updatedPlayers = currentPlayers.map((p, idx) => {
       if (idx === winnerIdx) {
         const nt = p.scoreTotal + cardValAdded;
@@ -782,14 +781,12 @@ export default function SpectrumGame() {
       }
       return p;
     });
-
     const roundEnds = updatedPlayers.every((p) => p.hand.length === 0);
 
     if (roundEnds) {
       const finalPlayers = JSON.parse(JSON.stringify(updatedPlayers));
       const playerCount = finalPlayers.length;
       const rewards = playerCount === 3 ? [2, 1, 0] : [3, 2, 1, 0];
-
       const scoreGroups = {};
       finalPlayers
         .filter((p) => !p.busted)
@@ -798,14 +795,12 @@ export default function SpectrumGame() {
           if (!scoreGroups[diff]) scoreGroups[diff] = [];
           scoreGroups[diff].push(p.id);
         });
-
       const sortedDiffs = Object.keys(scoreGroups)
         .map(Number)
         .sort((a, b) => a - b);
       let nextReserve = gameState.reserve || 0;
       const firstPlaceWinners = scoreGroups[sortedDiffs[0]] || [];
       const singleWinner = firstPlaceWinners.length === 1;
-
       let currentRank = 0;
       sortedDiffs.forEach((diff) => {
         const unitsInTie = scoreGroups[diff].length;
@@ -851,7 +846,6 @@ export default function SpectrumGame() {
           });
         }
       });
-
       if (singleWinner) {
         const winIdx = finalPlayers.findIndex(
           (x) => x.id === firstPlaceWinners[0]
@@ -942,6 +936,20 @@ export default function SpectrumGame() {
     setShowLeaveConfirm(false);
   };
 
+  // --- Kick Player Function ---
+  const kickPlayer = async (playerIdToRemove) => {
+    if (!gameState || gameState.hostId !== user.uid) return;
+
+    const newPlayers = gameState.players.filter(
+      (p) => p.id !== playerIdToRemove
+    );
+
+    await updateDoc(
+      doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId),
+      { players: newPlayers }
+    );
+  };
+
   if (isMaintenance) {
     return (
       <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center text-white p-4 text-center">
@@ -980,7 +988,6 @@ export default function SpectrumGame() {
         BOOTING_PROTOCOL...
       </div>
     );
-
   if (view === "menu") {
     return (
       <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans">
@@ -1076,9 +1083,21 @@ export default function SpectrumGame() {
                     <Sparkles size={14} className="text-yellow-500" />
                   )}
                 </span>
-                <span className="text-green-500 text-[10px] font-black uppercase tracking-tighter flex items-center gap-1 animate-pulse">
-                  <CheckCircle size={10} /> Active
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-green-500 text-[10px] font-black uppercase tracking-tighter flex items-center gap-1 animate-pulse">
+                    <CheckCircle size={10} /> Active
+                  </span>
+                  {/* --- KICK BUTTON --- */}
+                  {isHost && p.id !== gameState.hostId && (
+                    <button
+                      onClick={() => kickPlayer(p.id)}
+                      className="p-1.5 text-gray-600 hover:text-red-500 hover:bg-red-900/20 rounded-lg transition-all"
+                      title="Kick Player"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -1109,6 +1128,7 @@ export default function SpectrumGame() {
             isHost={isHost}
           />
         )}
+        <SpectrumLogo />
       </div>
     );
   }
@@ -1123,7 +1143,6 @@ export default function SpectrumGame() {
     const isHost = gameState.hostId === user.uid;
     const isRoundOver =
       gameState.turnIndex === null && gameState.status === "playing";
-
     const sortedHand = me
       ? [...me.hand]
           .map((card, originalIdx) => ({ ...card, originalIdx }))
@@ -1133,11 +1152,9 @@ export default function SpectrumGame() {
             return a.val - b.val;
           })
       : [];
-
     const allGuestsReady = gameState.players
       .filter((p) => p.id !== gameState.hostId)
       .every((p) => p.ready);
-
     const victor = [...gameState.players].sort((a, b) => b.chips - a.chips)[0];
 
     return (
