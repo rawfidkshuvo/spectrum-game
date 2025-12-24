@@ -187,7 +187,9 @@ const LeaveConfirmModal = ({
         Abort Frequency?
       </h3>
       <p className="text-gray-400 mb-6 text-sm">
-        {inGame
+        {isHost
+          ? "WARNING: As Host, shutting down the server will disconnect all users."
+          : inGame
           ? "Leaving now will destabilize the session for all observers!"
           : "Disconnecting from the backroom..."}
       </p>
@@ -210,7 +212,7 @@ const LeaveConfirmModal = ({
           onClick={onConfirmLeave}
           className="bg-red-600 hover:bg-red-500 text-white py-3 rounded font-bold flex items-center justify-center gap-2 transition-colors"
         >
-          <LogOut size={18} /> Sever Connection
+          <LogOut size={18} /> {isHost ? "Shut Down Server" : "Sever Connection"}
         </button>
       </div>
     </div>
@@ -411,6 +413,15 @@ export default function SpectrumGame() {
     return () => unsubscribe();
   }, []);
 
+  // --- Session Restoration ---
+  useEffect(() => {
+    const savedRoomId = localStorage.getItem("spectrum_roomId");
+    if (savedRoomId) {
+      setRoomId(savedRoomId);
+      // We assume the snapshot listener will pick up the state and set the view correctly
+    }
+  }, []);
+
   useEffect(() => {
     if (!roomId || !user) return;
     const unsub = onSnapshot(
@@ -424,6 +435,7 @@ export default function SpectrumGame() {
           if (!amIInRoom) {
             setRoomId("");
             setView("menu");
+            localStorage.removeItem("spectrum_roomId"); // Clear Session
             setError("Signal Lost: Kicked by Host");
             return;
           }
@@ -436,6 +448,7 @@ export default function SpectrumGame() {
         } else {
           setRoomId("");
           setView("menu");
+          localStorage.removeItem("spectrum_roomId"); // Clear Session
           setError("Synchronicity Terminated (Room Closed)");
         }
       }
@@ -500,6 +513,7 @@ export default function SpectrumGame() {
       doc(db, "artifacts", APP_ID, "public", "data", "rooms", newId),
       initialData
     );
+    localStorage.setItem("spectrum_roomId", newId); // Save Session
     setRoomId(newId);
     setLoading(false);
   };
@@ -547,6 +561,7 @@ export default function SpectrumGame() {
       },
     ];
     await updateDoc(ref, { players: newPlayers });
+    localStorage.setItem("spectrum_roomId", roomCodeInput); // Save Session
     setRoomId(roomCodeInput);
     setLoading(false);
   };
@@ -931,6 +946,7 @@ export default function SpectrumGame() {
     } catch (e) {
       console.error(e);
     }
+    localStorage.removeItem("spectrum_roomId"); // Clear Session
     setRoomId("");
     setView("menu");
     setShowLeaveConfirm(false);
