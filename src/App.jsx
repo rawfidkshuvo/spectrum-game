@@ -50,7 +50,8 @@ import {
 } from "lucide-react";
 
 // --- Firebase Config & Init ---
-const firebaseConfig = {
+// Using environment config for compatibility with the preview environment
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
   apiKey: "AIzaSyBjIjK53vVJW1y5RaqEFGSFp0ECVDBEe1o",
   authDomain: "game-hub-ff8aa.firebaseapp.com",
   projectId: "game-hub-ff8aa",
@@ -734,7 +735,15 @@ export default function SpectrumGame() {
       newLeadSuit = faceDown ? "MAGENTA" : card.suit;
     }
 
-    const nextTurn = (gameState.turnIndex + 1) % gameState.players.length;
+    // --- FIX START: PREVENT PREMATURE TURN ADVANCE ---
+    const isTrickComplete = newTrick.length === gameState.players.length;
+    // If trick is complete, pause the turn (set to -1) until resolution.
+    // If trick is NOT complete, move to next player normally.
+    const nextTurn = isTrickComplete
+      ? -1
+      : (gameState.turnIndex + 1) % gameState.players.length;
+    // --- FIX END ---
+
     const logText = faceDown
       ? `📡 ${me.name} initiated MAGENTA_OVERRIDE (MASKED)`
       : `📡 ${me.name} transmitted signal: ${card.suit} ${card.val}`;
@@ -1155,6 +1164,7 @@ export default function SpectrumGame() {
 
     const isMyTurn =
       gameState.turnIndex !== null &&
+      gameState.turnIndex !== -1 && // Prevent play during resolution phase
       gameState.players[gameState.turnIndex]?.id === user.uid;
     const isHost = gameState.hostId === user.uid;
     const isRoundOver =
