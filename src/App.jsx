@@ -1026,8 +1026,8 @@ export default function SpectrumGame() {
           <h1 className="text-5xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-fuchsia-300 to-fuchsia-600 font-serif tracking-[0.2em]">
             SPECTRUM
           </h1>
-          <p className="text-fuchsia-500/30 tracking-[0.6em] uppercase mt-2 text-[10px] font-black">
-            MAGENTA_EQUILIBRIUM
+          <p className="text-white-400/60 tracking-[0.3em] uppercase mt-2">
+            THE MAGENTA EQUILIBRIUM
           </p>
         </div>
         <div className="bg-gray-900/90 backdrop-blur-md border border-fuchsia-500/20 p-8 rounded-2xl w-full max-w-md shadow-2xl z-10">
@@ -1070,6 +1070,20 @@ export default function SpectrumGame() {
           >
             <BookOpen size={14} /> View Manual
           </button>
+        </div>
+        <div className="absolute bottom-4 text-slate-600 text-xs text-center">
+          Inspired by Fives. A tribute game.
+          <br />
+          Developed by <strong>RAWFID K SHUVO</strong>. Visit{" "}
+          <a
+            href="https://rawfidkshuvo.github.io/gamehub/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-fuchsia-500 underline hover:text-fuchsia-600"
+          >
+            GAMEHUB
+          </a>{" "}
+          for more games.
         </div>
       </div>
     );
