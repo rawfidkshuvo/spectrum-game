@@ -46,19 +46,21 @@ import {
   Inbox,
   Battery,
   Hammer,
-  Trash2, // Added Trash2 icon for the kick button
+  Trash2,
 } from "lucide-react";
 
 // --- Firebase Config & Init ---
-// Using environment config for compatibility with the preview environment
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-  apiKey: "AIzaSyBjIjK53vVJW1y5RaqEFGSFp0ECVDBEe1o",
-  authDomain: "game-hub-ff8aa.firebaseapp.com",
-  projectId: "game-hub-ff8aa",
-  storageBucket: "game-hub-ff8aa.firebasestorage.app",
-  messagingSenderId: "586559578902",
-  appId: "1:586559578902:web:2f012b1619cb4ef46aa637",
-};
+const firebaseConfig =
+  typeof __firebase_config !== "undefined"
+    ? JSON.parse(__firebase_config)
+    : {
+        apiKey: "AIzaSyBjIjK53vVJW1y5RaqEFGSFp0ECVDBEe1o",
+        authDomain: "game-hub-ff8aa.firebaseapp.com",
+        projectId: "game-hub-ff8aa",
+        storageBucket: "game-hub-ff8aa.firebasestorage.app",
+        messagingSenderId: "586559578902",
+        appId: "1:586559578902:web:2f012b1619cb4ef46aa637",
+      };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -213,7 +215,8 @@ const LeaveConfirmModal = ({
           onClick={onConfirmLeave}
           className="bg-red-600 hover:bg-red-500 text-white py-3 rounded font-bold flex items-center justify-center gap-2 transition-colors"
         >
-          <LogOut size={18} /> {isHost ? "Shut Down Server" : "Sever Connection"}
+          <LogOut size={18} />{" "}
+          {isHost ? "Shut Down Server" : "Sever Connection"}
         </button>
       </div>
     </div>
@@ -237,7 +240,7 @@ const CardDisplay = ({
   if (tiny) {
     return (
       <div
-        className={`w-6 h-8 rounded border flex items-center justify-center ${suitInfo.bg} ${suitInfo.border} shadow-sm`}
+        className={`w-6 h-8 rounded border flex items-center justify-center ${suitInfo.bg} ${suitInfo.border} shadow-sm shrink-0`}
         title={suit}
       >
         <span className={`text-[10px] font-black ${suitInfo.color}`}>
@@ -419,7 +422,6 @@ export default function SpectrumGame() {
     const savedRoomId = localStorage.getItem("spectrum_roomId");
     if (savedRoomId) {
       setRoomId(savedRoomId);
-      // We assume the snapshot listener will pick up the state and set the view correctly
     }
   }, []);
 
@@ -431,16 +433,14 @@ export default function SpectrumGame() {
         if (snap.exists()) {
           const data = snap.data();
 
-          // --- KICK CHECK: If I am not in the player list, return to menu ---
           const amIInRoom = data.players.some((p) => p.id === user.uid);
           if (!amIInRoom) {
             setRoomId("");
             setView("menu");
-            localStorage.removeItem("spectrum_roomId"); // Clear Session
+            localStorage.removeItem("spectrum_roomId");
             setError("Signal Lost: Kicked by Host");
             return;
           }
-          // -----------------------------------------------------------------
 
           setGameState(data);
           if (data.status === "playing") setView("game");
@@ -449,7 +449,7 @@ export default function SpectrumGame() {
         } else {
           setRoomId("");
           setView("menu");
-          localStorage.removeItem("spectrum_roomId"); // Clear Session
+          localStorage.removeItem("spectrum_roomId");
           setError("Synchronicity Terminated (Room Closed)");
         }
       }
@@ -514,7 +514,7 @@ export default function SpectrumGame() {
       doc(db, "artifacts", APP_ID, "public", "data", "rooms", newId),
       initialData
     );
-    localStorage.setItem("spectrum_roomId", newId); // Save Session
+    localStorage.setItem("spectrum_roomId", newId);
     setRoomId(newId);
     setLoading(false);
   };
@@ -562,7 +562,7 @@ export default function SpectrumGame() {
       },
     ];
     await updateDoc(ref, { players: newPlayers });
-    localStorage.setItem("spectrum_roomId", roomCodeInput); // Save Session
+    localStorage.setItem("spectrum_roomId", roomCodeInput);
     setRoomId(roomCodeInput);
     setLoading(false);
   };
@@ -735,14 +735,10 @@ export default function SpectrumGame() {
       newLeadSuit = faceDown ? "MAGENTA" : card.suit;
     }
 
-    // --- FIX START: PREVENT PREMATURE TURN ADVANCE ---
     const isTrickComplete = newTrick.length === gameState.players.length;
-    // If trick is complete, pause the turn (set to -1) until resolution.
-    // If trick is NOT complete, move to next player normally.
     const nextTurn = isTrickComplete
       ? -1
       : (gameState.turnIndex + 1) % gameState.players.length;
-    // --- FIX END ---
 
     const logText = faceDown
       ? `📡 ${me.name} initiated MAGENTA_OVERRIDE (MASKED)`
@@ -955,13 +951,12 @@ export default function SpectrumGame() {
     } catch (e) {
       console.error(e);
     }
-    localStorage.removeItem("spectrum_roomId"); // Clear Session
+    localStorage.removeItem("spectrum_roomId");
     setRoomId("");
     setView("menu");
     setShowLeaveConfirm(false);
   };
 
-  // --- Kick Player Function ---
   const kickPlayer = async (playerIdToRemove) => {
     if (!gameState || gameState.hostId !== user.uid) return;
 
@@ -989,10 +984,7 @@ export default function SpectrumGame() {
             and delivered.
           </p>
         </div>
-        {/* Add Spacing Between Boxes */}
         <div className="h-8"></div>
-
-        {/* Clickable Second Card */}
         <a href="https://rawfidkshuvo.github.io/gamehub/">
           <div className="flex items-center justify-center gap-3 mb-2">
             <div className="text-center pb-12 animate-pulse">
@@ -1126,7 +1118,6 @@ export default function SpectrumGame() {
                   <span className="text-green-500 text-[10px] font-black uppercase tracking-tighter flex items-center gap-1 animate-pulse">
                     <CheckCircle size={10} /> Active
                   </span>
-                  {/* --- KICK BUTTON --- */}
                   {isHost && p.id !== gameState.hostId && (
                     <button
                       onClick={() => kickPlayer(p.id)}
@@ -1178,7 +1169,7 @@ export default function SpectrumGame() {
 
     const isMyTurn =
       gameState.turnIndex !== null &&
-      gameState.turnIndex !== -1 && // Prevent play during resolution phase
+      gameState.turnIndex !== -1 &&
       gameState.players[gameState.turnIndex]?.id === user.uid;
     const isHost = gameState.hostId === user.uid;
     const isRoundOver =
@@ -1308,8 +1299,8 @@ export default function SpectrumGame() {
                       >
                         EQ: {p.scoreTotal}
                       </div>
-                      <div className="flex gap-0.5 justify-end">
-                        {p.scorePile.slice(-2).map((c, idx) => (
+                      <div className="flex flex-wrap gap-0.5 justify-end max-w-[80px]">
+                        {p.scorePile.map((c, idx) => (
                           <CardDisplay key={idx} {...c} tiny />
                         ))}
                       </div>
@@ -1419,6 +1410,19 @@ export default function SpectrumGame() {
                     {me.chips}
                   </span>
                 </div>
+
+                {/* --- MODIFIED: Added My Score Pile Visualization (Removed hidden sm:flex) --- */}
+                <div className="flex flex-col border-l border-gray-800 pl-4 ml-2">
+                  <span className="text-[8px] uppercase text-gray-500 font-black mb-1">
+                    Acquired
+                  </span>
+                  <div className="flex flex-wrap gap-0.5 max-w-[150px]">
+                    {me.scorePile.map((c, idx) => (
+                      <CardDisplay key={idx} {...c} tiny />
+                    ))}
+                  </div>
+                </div>
+                {/* -------------------------------------------------- */}
               </div>
 
               {isMyTurn && !isRoundOver && (
