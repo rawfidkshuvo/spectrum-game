@@ -587,6 +587,7 @@ export default function SpectrumGame() {
       return {
         ...p,
         hand,
+        chips: 5,
         scorePile: [],
         scoreTotal: 0,
         busted: false,
