@@ -579,6 +579,7 @@ export default function SpectrumGame() {
     });
     const shuffled = shuffle(deck);
     const handSize = Math.floor(shuffled.length / playerCount);
+
     const players = gameState.players.map((p) => {
       const hand = [];
       for (let i = 0; i < handSize; i++) {
@@ -586,16 +587,18 @@ export default function SpectrumGame() {
       }
       return {
         ...p,
+        // REMOVED: chips: 5, <--- This was the bug resetting your score
         hand,
-        chips: 5,
         scorePile: [],
         scoreTotal: 0,
         busted: false,
         ready: false,
       };
     });
+
     const isNextRound =
       gameState.status === "playing" || gameState.turnIndex === null;
+
     await updateDoc(
       doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId),
       {
@@ -605,7 +608,7 @@ export default function SpectrumGame() {
         trick: [],
         leadSuit: null,
         turnIndex: 0,
-        roundResult: null,
+        roundResult: null, // This clears the modal
         roundCount: isNextRound ? increment(1) : gameState.roundCount,
         logs: arrayUnion({
           text: `Initialized Frequency Sync: Round ${
@@ -613,6 +616,42 @@ export default function SpectrumGame() {
           }`,
           type: "neutral",
         }),
+      }
+    );
+  };
+
+  const finalizeGame = async () => {
+    if (!gameState || gameState.hostId !== user.uid) return;
+
+    // Reset for a new game in Lobby
+    const resetPlayers = gameState.players.map((p) => ({
+      ...p,
+      chips: 5,
+      scoreTotal: 0,
+      scorePile: [],
+      hand: [],
+      history: [],
+      busted: false,
+      ready: false,
+      roundRank: null,
+    }));
+
+    await updateDoc(
+      doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId),
+      {
+        status: "lobby", // Go back to lobby
+        roundCount: 1,
+        players: resetPlayers,
+        deck: [],
+        trick: [],
+        roundResult: null,
+        reserve: 0,
+        logs: [
+          {
+            text: "--- OPERATION COMPLETE: RETURNING TO BASE ---",
+            type: "neutral",
+          },
+        ],
       }
     );
   };
@@ -677,6 +716,17 @@ export default function SpectrumGame() {
       {
         players: updatedPlayers,
       }
+    );
+  };
+
+  const handleRoundReady = async () => {
+    if (!gameState) return;
+    const updatedPlayers = gameState.players.map((p) =>
+      p.id === user.uid ? { ...p, ready: true } : p
+    );
+    await updateDoc(
+      doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId),
+      { players: updatedPlayers }
     );
   };
 
@@ -757,10 +807,290 @@ export default function SpectrumGame() {
     setPlayMode("NORMAL");
   };
 
+  const RoundSummaryModal = ({
+    roundCount,
+    results,
+    players,
+    isHost,
+    hostId,
+    onReady,
+    onNextRound,
+    onFinalize,
+    myId,
+  }) => {
+    const guests = players.filter((p) => p.id !== hostId);
+    const allGuestsReady = guests.every((p) => p.ready);
+    const readyCount = guests.filter((p) => p.ready).length;
+    const totalGuests = guests.length;
+    const me = players.find((p) => p.id === myId);
+
+    // Calculate columns based on the history length of the first player to prevent blanks
+    // If roundCount is 4, we expect 4 columns.
+    const rounds = Array.from({ length: roundCount }, (_, i) => i + 1);
+    const isFinal = results.isFinal;
+
+    // Determine Winner for Final Screen
+    const winner = players.find((p) => p.id === results.winnerId) || players[0];
+    const isMeWinner = winner?.id === myId;
+
+    return (
+      <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in duration-500">
+        <div
+          className={`w-full max-w-5xl ${
+            isFinal
+              ? "border-2 border-yellow-500/50 shadow-yellow-900/40"
+              : "border border-fuchsia-500/30"
+          } bg-gray-900 rounded-3xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]`}
+        >
+          {/* --- VICTORY HEADER (Only if Final) --- */}
+          {isFinal && (
+            <div className="bg-gradient-to-b from-yellow-900/20 to-gray-900 p-8 text-center shrink-0 border-b border-gray-800 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10"></div>
+              <div className="relative z-10 flex flex-col items-center animate-in slide-in-from-top-10 duration-700">
+                <Trophy
+                  size={64}
+                  className="text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.6)] mb-4 animate-bounce"
+                />
+                <h1 className="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-200 to-yellow-600 font-serif tracking-[0.2em] uppercase mb-2">
+                  {winner.name}
+                </h1>
+                <div className="inline-flex items-center gap-2 bg-yellow-950/40 border border-yellow-500/30 px-6 py-2 rounded-full">
+                  <span className="text-yellow-500 font-bold tracking-widest text-xs uppercase">
+                    Mission Accomplished
+                  </span>
+                </div>
+
+                {/* Add-Ons / Rewards Section */}
+                {isMeWinner && (
+                  <div className="mt-6 flex flex-wrap justify-center gap-4 animate-in zoom-in duration-500 delay-300">
+                    <div className="bg-gray-800/80 border border-gray-700 p-3 rounded-xl flex items-center gap-3">
+                      <div className="bg-yellow-500/20 p-2 rounded-full">
+                        <Activity size={18} className="text-yellow-400" />
+                      </div>
+                      <div className="text-left">
+                        <div className="text-[10px] text-gray-400 uppercase font-black">
+                          Credits
+                        </div>
+                        <div className="text-white font-mono font-bold">
+                          +2,500 Gold
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-gray-800/80 border border-gray-700 p-3 rounded-xl flex items-center gap-3">
+                      <div className="bg-purple-500/20 p-2 rounded-full">
+                        <Sparkles size={18} className="text-purple-400" />
+                      </div>
+                      <div className="text-left">
+                        <div className="text-[10px] text-gray-400 uppercase font-black">
+                          XP Gained
+                        </div>
+                        <div className="text-white font-mono font-bold">
+                          +1,200 XP
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-gray-800/80 border border-gray-700 p-3 rounded-xl flex items-center gap-3">
+                      <div className="bg-blue-500/20 p-2 rounded-full">
+                        <Shield size={18} className="text-blue-400" />
+                      </div>
+                      <div className="text-left">
+                        <div className="text-[10px] text-gray-400 uppercase font-black">
+                          Unlocks
+                        </div>
+                        <div className="text-white font-mono font-bold">
+                          Titanium Plating
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* --- NORMAL HEADER (If Not Final) --- */}
+          {!isFinal && (
+            <div className="p-6 bg-gray-950 border-b border-gray-800 flex justify-between items-center shrink-0">
+              <div>
+                <h2 className="text-2xl font-black text-white font-serif tracking-widest uppercase">
+                  Phase {roundCount} Report
+                </h2>
+              </div>
+              <div className="flex gap-4">
+                {results.reserve > 0 && (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-fuchsia-900/20 rounded-full border border-fuchsia-500/20">
+                    <Battery size={16} className="text-fuchsia-400" />
+                    <span className="text-lg font-mono font-bold text-white">
+                      {results.reserve}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 px-4 py-2 bg-gray-800/50 rounded-full border border-gray-700">
+                  <span className="text-[10px] text-gray-400 uppercase font-black">
+                    Ready
+                  </span>
+                  <span className="text-lg font-mono font-bold text-white">
+                    {readyCount}/{totalGuests}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* --- THE TABLE (Shows Round 4 Data correctly now) --- */}
+          <div className="p-0 md:p-6 overflow-x-auto flex-1 bg-gray-900">
+            {!isFinal && (
+              <div className="md:hidden text-center text-[10px] text-gray-500 uppercase py-2">
+                Scroll for details &rarr;
+              </div>
+            )}
+            <table className="w-full text-left border-collapse whitespace-nowrap">
+              <thead>
+                <tr className="text-[10px] text-gray-500 uppercase tracking-widest border-b border-gray-800">
+                  <th className="pb-3 pl-4 sticky left-0 bg-gray-900 z-20">
+                    Rank
+                  </th>
+                  <th className="pb-3 sticky left-14 bg-gray-900 z-20">Unit</th>
+                  {rounds.map((r) => (
+                    <React.Fragment key={r}>
+                      <th className="pb-3 text-center px-2 border-l border-gray-800 text-fuchsia-400/50">
+                        R{r} Eq
+                      </th>
+                      <th className="pb-3 text-center px-2 text-fuchsia-400/50">
+                        Diff
+                      </th>
+                    </React.Fragment>
+                  ))}
+                  <th className="pb-3 text-right pl-4 pr-4 border-l border-gray-800 text-white sticky right-0 bg-gray-900 z-20">
+                    Total
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="text-sm">
+                {results.breakdown.map((row) => {
+                  const isRowMe = row.id === myId;
+                  const playerObj = players.find((p) => p.id === row.id);
+                  const history = playerObj?.history || [];
+
+                  return (
+                    <tr
+                      key={row.id}
+                      className={`border-b border-gray-800/50 ${
+                        isRowMe ? "bg-fuchsia-900/10" : ""
+                      }`}
+                    >
+                      <td className="py-4 pl-4 font-mono text-gray-400 sticky left-0 bg-gray-900/95 z-10">
+                        {row.busted ? (
+                          <span className="text-red-500">⚠</span>
+                        ) : (
+                          `#${row.rank}`
+                        )}
+                      </td>
+                      <td
+                        className={`py-4 font-bold sticky left-14 bg-gray-900/95 z-10 ${
+                          isRowMe ? "text-fuchsia-300" : "text-gray-300"
+                        }`}
+                      >
+                        {row.name}
+                      </td>
+
+                      {rounds.map((r, i) => {
+                        const roundData = history[i];
+                        return (
+                          <React.Fragment key={r}>
+                            <td className="py-4 text-center font-mono border-l border-gray-800 px-2 text-gray-500">
+                              {roundData ? roundData.eq : "-"}
+                            </td>
+                            <td className="py-4 text-center font-mono font-bold px-2">
+                              {roundData ? (
+                                roundData.diff > 0 ? (
+                                  <span className="text-green-400">
+                                    +{roundData.diff}
+                                  </span>
+                                ) : roundData.diff < 0 ? (
+                                  <span className="text-red-400">
+                                    {roundData.diff}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-600">-</span>
+                                )
+                              ) : (
+                                "-"
+                              )}
+                            </td>
+                          </React.Fragment>
+                        );
+                      })}
+
+                      <td className="py-4 text-right pr-4 font-mono font-bold text-white border-l border-gray-800 sticky right-0 bg-gray-900/95 z-10">
+                        {row.chipsTotal}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* --- FOOTER ACTIONS --- */}
+          <div className="p-6 bg-gray-950 border-t border-gray-800 flex justify-end gap-3 shrink-0">
+            {isHost ? (
+              <button
+                onClick={isFinal ? onFinalize : onNextRound} // Finalize resets to lobby
+                disabled={!isFinal && !allGuestsReady}
+                className={`px-8 py-4 rounded-xl font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all w-full md:w-auto ${
+                  isFinal
+                    ? "bg-yellow-600 hover:bg-yellow-500 text-white shadow-lg shadow-yellow-900/20"
+                    : allGuestsReady
+                    ? "bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg"
+                    : "bg-gray-800 text-gray-600 cursor-not-allowed opacity-50"
+                }`}
+              >
+                {isFinal ? (
+                  <>
+                    {" "}
+                    <Home size={18} /> Return to Base{" "}
+                  </>
+                ) : (
+                  <>
+                    {" "}
+                    <FastForward size={18} />{" "}
+                    {allGuestsReady
+                      ? "Initialize Next Phase"
+                      : "Awaiting Signals..."}{" "}
+                  </>
+                )}
+              </button>
+            ) : (
+              <button
+                onClick={onReady}
+                disabled={isFinal || me?.ready} // Disable if game is over
+                className={`px-8 py-4 rounded-xl font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all w-full md:w-auto ${
+                  isFinal
+                    ? "bg-gray-800 text-gray-500 cursor-default" // Guest view on final screen
+                    : me?.ready
+                    ? "bg-green-900/30 border border-green-500/50 text-green-500 cursor-default"
+                    : "bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg animate-pulse"
+                }`}
+              >
+                {isFinal
+                  ? "Awaiting Host..."
+                  : me?.ready
+                  ? "Standing By"
+                  : "Signal Ready"}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const resolveTrick = async (trick, currentPlayers, leadSuit) => {
     let winnerId = trick[0].playerId;
     let highestVal = -1;
 
+    // 1. Determine Winner
     const trumps = trick.filter((t) => t.suit === "SILVER" && !t.faceDown);
     if (trumps.length > 0) {
       highestVal = Math.max(...trumps.map((t) => t.val));
@@ -784,30 +1114,35 @@ export default function SpectrumGame() {
     const cardValAdded = winningCard.faceDown ? 5 : winningCard.val;
 
     const newLogs = [];
-    const updatedPlayers = currentPlayers.map((p, idx) => {
-      if (idx === winnerIdx) {
-        const nt = p.scoreTotal + cardValAdded;
-        if (nt > 25) {
-          newLogs.push({
-            text: `⚠️ SYSTEM_OVERLOAD: ${p.name} BUSTED at ${nt} Equilibrium`,
-            type: "danger",
-          });
-        }
-        return {
-          ...p,
-          scorePile: [...p.scorePile, winningCard],
-          scoreTotal: nt,
-          busted: nt > 25,
-        };
-      }
-      return p;
-    });
+    const updatedPlayers = currentPlayers.map((p) => ({ ...p }));
+
+    // 2. Update Scores
+    updatedPlayers[winnerIdx].scorePile = [
+      ...updatedPlayers[winnerIdx].scorePile,
+      winningCard,
+    ];
+    updatedPlayers[winnerIdx].scoreTotal += cardValAdded;
+
+    // Check Bust
+    if (updatedPlayers[winnerIdx].scoreTotal > 25) {
+      updatedPlayers[winnerIdx].busted = true;
+      newLogs.push({
+        text: `⚠️ SYSTEM_OVERLOAD: ${updatedPlayers[winnerIdx].name} BUSTED at ${updatedPlayers[winnerIdx].scoreTotal}`,
+        type: "danger",
+      });
+    }
+
     const roundEnds = updatedPlayers.every((p) => p.hand.length === 0);
 
     if (roundEnds) {
+      // --- ROUND END CALCULATION ---
       const finalPlayers = JSON.parse(JSON.stringify(updatedPlayers));
-      const playerCount = finalPlayers.length;
-      const rewards = playerCount === 3 ? [2, 1, 0] : [3, 2, 1, 0];
+
+      // Snapshot chips before distribution for history delta
+      const chipsBefore = {};
+      finalPlayers.forEach((p) => (chipsBefore[p.id] = p.chips));
+
+      // Calculate Rankings
       const scoreGroups = {};
       finalPlayers
         .filter((p) => !p.busted)
@@ -816,113 +1151,123 @@ export default function SpectrumGame() {
           if (!scoreGroups[diff]) scoreGroups[diff] = [];
           scoreGroups[diff].push(p.id);
         });
+
       const sortedDiffs = Object.keys(scoreGroups)
         .map(Number)
         .sort((a, b) => a - b);
+
+      const rewards = finalPlayers.length === 3 ? [2, 1, 0] : [3, 2, 1, 0];
       let nextReserve = gameState.reserve || 0;
-      const firstPlaceWinners = scoreGroups[sortedDiffs[0]] || [];
-      const singleWinner = firstPlaceWinners.length === 1;
       let currentRank = 0;
+
+      // Distribute Rewards
       sortedDiffs.forEach((diff) => {
-        const unitsInTie = scoreGroups[diff].length;
-        const rewardValue = rewards[currentRank] || 0;
-        const rankLabel =
-          ["1st", "2nd", "3rd", "4th"][currentRank] || `${currentRank + 1}th`;
+        const group = scoreGroups[diff];
+        const reward = rewards[currentRank] || 0;
+        const rankLabel = currentRank + 1;
 
-        scoreGroups[diff].forEach((pid) => {
-          const pIdx = finalPlayers.findIndex((x) => x.id === pid);
-          finalPlayers[pIdx].chips += rewardValue;
+        group.forEach((pid) => {
+          const p = finalPlayers.find((x) => x.id === pid);
+          p.chips += reward;
+          p.roundRank = rankLabel;
 
-          newLogs.push({
-            text: `📊 ${finalPlayers[pIdx].name} placed ${rankLabel} (${finalPlayers[pIdx].scoreTotal} pts) -> +${rewardValue} chips`,
-            type: "success",
-          });
-
+          // Perfect Score Bonus
           if (diff === 0) {
-            if (singleWinner) {
-              finalPlayers[pIdx].chips += 1;
+            if (group.length === 1) {
+              p.chips += 1;
               newLogs.push({
-                text: `🎯 PERFECT_SYNC: ${finalPlayers[pIdx].name} hit 25! (+1 bonus)`,
+                text: `🎯 PERFECT_SYNC: ${p.name} (+1 Bonus)`,
                 type: "success",
               });
             } else {
-              nextReserve += 1;
-              newLogs.push({
-                text: `🔋 TIE_OVERFLOW: Tied perfect score of 25. 1 bonus moved to Extra Chips tray.`,
-                type: "neutral",
-              });
+              nextReserve += 1; // Split pot goes to reserve
             }
           }
         });
-        currentRank += unitsInTie;
+        currentRank += group.length;
       });
 
-      finalPlayers.forEach((p, i) => {
+      // Handle Bust Penalties
+      finalPlayers.forEach((p) => {
         if (p.busted) {
-          finalPlayers[i].chips -= 1;
+          p.chips -= 1;
+          p.roundRank = 99;
           nextReserve += 1;
-          newLogs.push({
-            text: `⚠️ SYSTEM_BUST: ${p.name} (${p.scoreTotal} pts) forfeited 1 chip to Extra Chips tray.`,
-            type: "danger",
-          });
         }
       });
+
+      // Handle Reserve Payout or Flush
+      const firstPlaceIds = scoreGroups[sortedDiffs[0]] || [];
+      const singleWinner = firstPlaceIds.length === 1;
+
       if (singleWinner) {
-        const winIdx = finalPlayers.findIndex(
-          (x) => x.id === firstPlaceWinners[0]
-        );
+        const winner = finalPlayers.find((p) => p.id === firstPlaceIds[0]);
         if (nextReserve > 0) {
+          winner.chips += nextReserve;
           newLogs.push({
-            text: `⚡ RESERVE_ACQUIRED: ${finalPlayers[winIdx].name} collected ${nextReserve} Extra Chips!`,
+            text: `⚡ RESERVE CAPTURED: ${winner.name} (+${nextReserve})`,
             type: "success",
           });
-          finalPlayers[winIdx].chips += nextReserve;
           nextReserve = 0;
         }
-      } else if (nextReserve > 0) {
-        newLogs.push({
-          text: `🔋 TRAY_UPDATE: Extra Chips tray now at ${nextReserve} units (Tied Winner Lock)`,
-          type: "neutral",
-        });
       }
 
-      const isLastRound = gameState.roundCount >= 4;
-      if (isLastRound && !singleWinner && nextReserve > 0) {
-        newLogs.push({
-          text: `💥 SYSTEM_FLUSH: ${nextReserve} Extra Chips destroyed (No Clear Protocol Victor)`,
-          type: "danger",
-        });
-        nextReserve = 0;
-      }
+      // --- CRITICAL HISTORY FIX ---
+      // We push to history explicitly here before saving
+      finalPlayers.forEach((p) => {
+        if (!Array.isArray(p.history)) p.history = [];
+        const diff = p.chips - chipsBefore[p.id];
+        // Ensure values are numbers
+        p.history.push({ eq: Number(p.scoreTotal), diff: Number(diff) });
+      });
 
+      // Generate Modal Data
+      const breakdown = finalPlayers
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          chipsTotal: p.chips,
+          rank: p.roundRank,
+          busted: p.busted,
+          // We don't need history here, strictly, as we read it from the player object,
+          // but passing it in the player object inside updateDoc is vital.
+        }))
+        .sort((a, b) =>
+          a.busted === b.busted
+            ? b.chipsTotal - a.chipsTotal
+            : a.busted
+            ? 1
+            : -1
+        );
+
+      // Check Final Game State
       const gameFinished =
-        isLastRound || finalPlayers.some((p) => p.chips >= 25);
+        gameState.roundCount >= 4 || finalPlayers.some((p) => p.chips >= 25);
+      if (gameFinished && nextReserve > 0) nextReserve = 0; // Clear reserve on game over
 
       await updateDoc(
         doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId),
         {
-          players: finalPlayers,
+          players: finalPlayers, // This saves the updated history!
           trick: [],
           leadSuit: null,
-          status: gameFinished ? "finished" : "playing",
           turnIndex: null,
+          status: "playing", // Keep playing to show modal
           reserve: nextReserve,
           roundResult: {
-            closest:
-              firstPlaceWinners.length > 1
-                ? "MULTIPLE_UNITS"
-                : finalPlayers.find((p) => p.id === firstPlaceWinners[0])
-                    ?.name || "NONE",
-            total: sortedDiffs[0] !== undefined ? 25 - sortedDiffs[0] : 0,
+            breakdown,
             reserve: nextReserve,
+            isFinal: gameFinished,
+            winnerId: gameFinished ? breakdown[0].id : null, // Pass winner ID for the modal
           },
           logs: arrayUnion(...newLogs, {
-            text: `--- Calibration Phase ${gameState.roundCount} Finalized ---`,
+            text: `--- Phase ${gameState.roundCount} Complete ---`,
             type: "neutral",
           }),
         }
       );
     } else {
+      // Normal Trick End
       await updateDoc(
         doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId),
         {
@@ -931,7 +1276,7 @@ export default function SpectrumGame() {
           leadSuit: null,
           turnIndex: winnerIdx,
           logs: arrayUnion(...newLogs, {
-            text: `✅ Trick secured by ${updatedPlayers[winnerIdx].name} (+${cardValAdded})`,
+            text: `✅ Trick secured by ${updatedPlayers[winnerIdx].name}`,
             type: "success",
           }),
         }
@@ -1200,10 +1545,18 @@ export default function SpectrumGame() {
             onCancel={() => setShowLeaveConfirm(false)}
             onConfirmLeave={handleLeaveRoom}
             onConfirmLobby={() => {
+              // Perform a full reset of player stats
               const resetPlayers = gameState.players.map((p) => ({
                 ...p,
+                chips: 5, // <--- Reset chips to 5
+                scoreTotal: 0, // <--- Reset current score
+                scorePile: [], // <--- Clear collected cards
+                hand: [], // <--- Clear hand
+                history: [], // <--- Clear history (R1, R2 columns)
+                busted: false,
                 ready: false,
               }));
+
               updateDoc(
                 doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId),
                 {
@@ -1212,6 +1565,9 @@ export default function SpectrumGame() {
                   roundResult: null,
                   reserve: 0,
                   players: resetPlayers,
+                  deck: [], // <--- Clear the deck
+                  trick: [], // <--- Clear any active trick
+                  logs: [], // <--- Optional: Clear logs for a fresh start
                 }
               );
               setShowLeaveConfirm(false);
@@ -1221,7 +1577,7 @@ export default function SpectrumGame() {
           />
         )}
 
-        <div className="h-14 bg-gray-950/90 border-b border-fuchsia-900/30 flex items-center justify-between px-4 z-50 backdrop-blur-md sticky top-0">
+        <div className="h-14 bg-gray-950/90 border-b border-fuchsia-900/30 flex items-center justify-between px-4 z-[160] backdrop-blur-md sticky top-0">
           <div className="flex items-center gap-2 font-serif font-black text-fuchsia-500 tracking-[0.2em]">
             SPECTRUM{" "}
             <span className="text-[10px] text-gray-500 font-sans tracking-widest ml-1 opacity-70">
@@ -1313,41 +1669,23 @@ export default function SpectrumGame() {
           </div>
 
           <div className="flex-1 flex flex-col items-center justify-center w-full relative">
-            {isRoundOver && gameState.roundResult && (
-              <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 rounded-3xl border border-fuchsia-500/20 animate-in fade-in zoom-in duration-500">
-                <div className="text-center">
-                  <div className="bg-fuchsia-600 text-white text-[10px] font-black uppercase px-4 py-1 rounded-full mb-4 inline-block tracking-widest shadow-lg">
-                    Phase Summary
-                  </div>
-                  <h2 className="text-3xl font-serif font-black text-white mb-2 uppercase">
-                    {gameState.roundResult.closest}
-                  </h2>
-                  <p className="text-fuchsia-400 font-mono text-xs mb-2 uppercase tracking-tighter">
-                    Achieved Equilibrium ({gameState.roundResult.total}/25)
-                  </p>
-                  {gameState.roundResult.reserve > 0 && (
-                    <p className="text-gray-500 font-mono text-[10px] mb-8 uppercase tracking-widest">
-                      Extra Chips Tray: {gameState.roundResult.reserve} units
-                    </p>
-                  )}
-                  <div className="mt-8">
-                    {isHost ? (
-                      <button
-                        onClick={startRound}
-                        className="bg-fuchsia-700 hover:bg-fuchsia-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-fuchsia-900/30 transition-all"
-                      >
-                        <FastForward size={20} /> Initialize Phase{" "}
-                        {gameState.roundCount + 1}
-                      </button>
-                    ) : (
-                      <div className="text-gray-500 font-black animate-pulse uppercase tracking-[0.2em] text-[10px]">
-                        Awaiting host frequency shift...
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* --- REPLACEMENT START --- */}
+            {isRoundOver &&
+              gameState.roundResult &&
+              gameState.roundResult.breakdown && (
+                <RoundSummaryModal
+                  roundCount={gameState.roundCount}
+                  results={gameState.roundResult}
+                  players={gameState.players}
+                  isHost={isHost}
+                  hostId={gameState.hostId} // <--- Pass this prop
+                  myId={user.uid}
+                  onReady={handleRoundReady}
+                  onNextRound={startRound}
+                  onFinalize={finalizeGame} // Pass the new function here
+                />
+              )}
+            {/* --- REPLACEMENT END --- */}
 
             <div className="relative w-full max-w-md flex flex-wrap gap-4 justify-center items-center">
               {gameState.trick.map((c, idx) => (
@@ -1491,7 +1829,7 @@ export default function SpectrumGame() {
         </div>
 
         {showLogs && (
-          <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4">
+          <div className="fixed top-16 right-4 w-64 max-h-60 bg-gray-900/95 border border-gray-700 rounded-xl z-[155] overflow-y-auto p-2 shadow-2xl">
             <div className="bg-gray-900 border border-gray-800 w-full max-w-md h-[60vh] rounded-2xl flex flex-col shadow-2xl overflow-hidden">
               <div className="p-4 bg-gray-950 flex justify-between items-center border-b border-gray-800">
                 <span className="font-serif font-black text-fuchsia-500 tracking-widest uppercase text-sm">
@@ -1522,7 +1860,7 @@ export default function SpectrumGame() {
         )}
 
         {gameState.status === "finished" && (
-          <div className="fixed inset-0 bg-black/95 z-[200] flex flex-col items-center justify-center p-4 backdrop-blur-2xl">
+          <div className="fixed inset-0 top-14 bg-black/95 z-[150] flex flex-col items-center justify-center p-4 backdrop-blur-2xl">
             <div className="relative mb-10">
               <Trophy
                 size={100}
