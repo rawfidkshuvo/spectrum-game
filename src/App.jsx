@@ -859,51 +859,6 @@ export default function SpectrumGame() {
                     Mission Accomplished
                   </span>
                 </div>
-
-                {/* Add-Ons / Rewards Section */}
-                {isMeWinner && (
-                  <div className="mt-6 flex flex-wrap justify-center gap-4 animate-in zoom-in duration-500 delay-300">
-                    <div className="bg-gray-800/80 border border-gray-700 p-3 rounded-xl flex items-center gap-3">
-                      <div className="bg-yellow-500/20 p-2 rounded-full">
-                        <Activity size={18} className="text-yellow-400" />
-                      </div>
-                      <div className="text-left">
-                        <div className="text-[10px] text-gray-400 uppercase font-black">
-                          Credits
-                        </div>
-                        <div className="text-white font-mono font-bold">
-                          +2,500 Gold
-                        </div>
-                      </div>
-                    </div>
-                    <div className="bg-gray-800/80 border border-gray-700 p-3 rounded-xl flex items-center gap-3">
-                      <div className="bg-purple-500/20 p-2 rounded-full">
-                        <Sparkles size={18} className="text-purple-400" />
-                      </div>
-                      <div className="text-left">
-                        <div className="text-[10px] text-gray-400 uppercase font-black">
-                          XP Gained
-                        </div>
-                        <div className="text-white font-mono font-bold">
-                          +1,200 XP
-                        </div>
-                      </div>
-                    </div>
-                    <div className="bg-gray-800/80 border border-gray-700 p-3 rounded-xl flex items-center gap-3">
-                      <div className="bg-blue-500/20 p-2 rounded-full">
-                        <Shield size={18} className="text-blue-400" />
-                      </div>
-                      <div className="text-left">
-                        <div className="text-[10px] text-gray-400 uppercase font-black">
-                          Unlocks
-                        </div>
-                        <div className="text-white font-mono font-bold">
-                          Titanium Plating
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -1601,7 +1556,11 @@ export default function SpectrumGame() {
             </button>
             <button
               onClick={() => setShowLogs(!showLogs)}
-              className="p-2 hover:bg-gray-800 rounded text-gray-400 transition-colors"
+              className={`p-2 rounded-full ${
+                showLogs
+                  ? "bg-fuchsia-900 text-fuchsia-400"
+                  : "text-gray-400 hover:bg-gray-800"
+              }`}
             >
               <History size={18} />
             </button>
