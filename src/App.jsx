@@ -1127,16 +1127,12 @@ export default function SpectrumGame() {
           p.roundRank = rankLabel;
 
           // Perfect Score Bonus
-          if (diff === 0) {
-            if (group.length === 1) {
-              p.chips += 1;
-              newLogs.push({
-                text: `🎯 PERFECT_SYNC: ${p.name} (+1 Bonus)`,
-                type: "success",
-              });
-            } else {
-              nextReserve += 1; // Split pot goes to reserve
-            }
+          if (diff === 0) {           
+            p.chips += 1;
+            newLogs.push({
+              text: `🎯 PERFECT_SYNC: ${p.name} (+1 Bonus)`,
+              type: "success",
+            });           
           }
         });
         currentRank += group.length;
