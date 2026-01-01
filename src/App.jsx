@@ -596,8 +596,7 @@ export default function SpectrumGame() {
       };
     });
 
-    const isNextRound =
-      gameState.status === "playing" || gameState.turnIndex === null;
+    const isNextRound = gameState.status === "playing";
 
     await updateDoc(
       doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId),
@@ -646,6 +645,7 @@ export default function SpectrumGame() {
         trick: [],
         roundResult: null,
         reserve: 0,
+        turnIndex: 0, // <--- ADD THIS LINE
         logs: [
           {
             text: "--- OPERATION COMPLETE: RETURNING TO BASE ---",
