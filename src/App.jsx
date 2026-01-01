@@ -1191,6 +1191,12 @@ export default function SpectrumGame() {
             : -1
         );
 
+      // --- FIX STARTS HERE ---
+      // Determine the TRUE chip leader separately
+      // (Sort purely by chips, ignoring bust status)
+      const trueLeader = [...finalPlayers].sort((a, b) => b.chips - a.chips)[0];
+      // --- FIX ENDS HERE ---  
+
       // Check Final Game State
       const gameFinished =
         gameState.roundCount >= 4 || finalPlayers.some((p) => p.chips >= 25);
@@ -1209,7 +1215,7 @@ export default function SpectrumGame() {
             breakdown,
             reserve: nextReserve,
             isFinal: gameFinished,
-            winnerId: gameFinished ? breakdown[0].id : null, // Pass winner ID for the modal
+            winnerId: gameFinished ? trueLeader.id : null, // Pass winner ID for the modal
           },
           logs: arrayUnion(...newLogs, {
             text: `--- Phase ${gameState.roundCount} Complete ---`,
