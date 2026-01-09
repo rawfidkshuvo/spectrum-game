@@ -177,6 +177,15 @@ const SpectrumLogo = () => (
   </div>
 );
 
+const SpectrumLogoBig = () => (
+  <div className="flex items-center justify-center gap-1 opacity-40 mt-auto pb-2 pt-2 relative z-10">
+    <Target size={22} className="text-fuchsia-500" />
+    <span className="text-[20px] font-black tracking-widest text-fuchsia-500 uppercase">
+      SPECTRUM
+    </span>
+  </div>
+);
+
 const LeaveConfirmModal = ({
   onConfirmLeave,
   onConfirmLobby,
@@ -1127,12 +1136,12 @@ export default function SpectrumGame() {
           p.roundRank = rankLabel;
 
           // Perfect Score Bonus
-          if (diff === 0) {           
+          if (diff === 0) {
             p.chips += 1;
             newLogs.push({
               text: `🎯 PERFECT_SYNC: ${p.name} (+1 Bonus)`,
               type: "success",
-            });           
+            });
           }
         });
         currentRank += group.length;
@@ -1195,7 +1204,7 @@ export default function SpectrumGame() {
       // Determine the TRUE chip leader separately
       // (Sort purely by chips, ignoring bust status)
       const trueLeader = [...finalPlayers].sort((a, b) => b.chips - a.chips)[0];
-      // --- FIX ENDS HERE ---  
+      // --- FIX ENDS HERE ---
 
       // Check Final Game State
       const gameFinished =
@@ -1363,7 +1372,7 @@ export default function SpectrumGame() {
             onClick={() => setShowRules(true)}
             className="w-full text-[10px] text-gray-500 hover:text-fuchsia-400 flex items-center justify-center gap-2 uppercase tracking-widest"
           >
-            <BookOpen size={14} /> View Manual
+            <BookOpen size={14} /> System Manual
           </button>
         </div>
         <div className="absolute bottom-4 text-slate-600 text-xs text-center">
@@ -1389,6 +1398,7 @@ export default function SpectrumGame() {
     return (
       <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-6 relative">
         <FloatingBackground />
+        <SpectrumLogoBig />
         <div className="z-10 w-full max-w-lg bg-gray-900/95 backdrop-blur-xl p-8 rounded-2xl border border-fuchsia-900/30 shadow-2xl">
           <div className="flex justify-between items-center mb-8 border-b border-gray-800 pb-4">
             <h2 className="text-xl font-serif text-fuchsia-500 tracking-wider">
