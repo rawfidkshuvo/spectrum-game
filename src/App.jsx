@@ -399,9 +399,7 @@ const RulesModal = ({ onClose }) => (
 export default function SpectrumGame() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState("menu");
-  const [playerName, setPlayerName] = useState(
-    () => localStorage.getItem("spectrum_playerName") || ""
-  );
+  
   const [roomCodeInput, setRoomCodeInput] = useState("");
   const [roomId, setRoomId] = useState("");
   const [gameState, setGameState] = useState(null);
@@ -414,6 +412,15 @@ export default function SpectrumGame() {
   const [playMode, setPlayMode] = useState("NORMAL");
 
   const [isMaintenance, setIsMaintenance] = useState(false);
+
+  //read and fill global name
+  const [playerName, setPlayerName] = useState(
+    () => localStorage.getItem("gameHub_playerName") || ""
+  );
+  //set global name for all game
+  useEffect(() => {
+    if (playerName) localStorage.setItem("gameHub_playerName", playerName);
+  }, [playerName]);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -428,9 +435,7 @@ export default function SpectrumGame() {
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (playerName) localStorage.setItem("spectrum_playerName", playerName);
-  }, [playerName]);
+  
 
   // --- Session Restoration ---
   useEffect(() => {
