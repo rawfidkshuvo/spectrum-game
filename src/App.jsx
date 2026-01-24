@@ -1366,7 +1366,7 @@ export default function SpectrumGame() {
         <div className="z-10 text-center mb-10 animate-in fade-in zoom-in duration-700">
           <Target
             size={64}
-            className="text-fuchsia-500 mx-auto mb-4 animate-pulse drop-shadow-[0_0_20px_rgba(217,70,239,0.4)]"
+            className="text-fuchsia-500 mx-auto mb-4 animate-bounce drop-shadow-[0_0_20px_rgba(217,70,239,0.4)]"
           />
           <h1 className="text-5xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-fuchsia-300 to-fuchsia-600 font-serif tracking-[0.2em]">
             SPECTRUM
