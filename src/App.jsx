@@ -121,7 +121,7 @@ const shuffle = (array) => {
 // --- Sub-Components ---
 
 const FeedbackOverlay = ({ type, message, subtext, icon: Icon }) => (
-  <div className="fixed inset-0 z-[160] flex items-center justify-center pointer-events-none">
+  <div className="fixed inset-0 z-160 flex items-center justify-center pointer-events-none">
     <div
       className={`flex flex-col items-center justify-center p-8 md:p-12 rounded-3xl border-4 shadow-[0_0_50px_rgba(0,0,0,0.8)] transform transition-all animate-in fade-in zoom-in slide-in-from-bottom-10 duration-300 backdrop-blur-md
       ${
@@ -160,7 +160,7 @@ const FloatingBackground = ({ isShaking }) => (
       isShaking ? "animate-shake bg-red-900/20" : ""
     }`}
   >
-    <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-yellow-900/20 via-gray-950 to-black" />
+    <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-yellow-900/20 via-gray-950 to-black" />
     <div className="absolute top-0 left-0 w-full h-full opacity-10">
       {[...Array(20)].map((_, i) => {
         const fruitKeys = Object.keys(SUITS);
@@ -168,7 +168,7 @@ const FloatingBackground = ({ isShaking }) => (
         return (
           <div
             key={i}
-            className="absolute animate-float text-white/20"
+            className="absolute animate-float text-white/60"
             style={{
               left: `${Math.random() * 100}%`,
               top: `${Math.random() * 100}%`,
@@ -223,7 +223,7 @@ const LeaveConfirmModal = ({
   isHost,
   inGame,
 }) => (
-  <div className="fixed inset-0 bg-black/90 z-[200] flex items-center justify-center p-4 animate-in fade-in">
+  <div className="fixed inset-0 bg-black/90 z-200 flex items-center justify-center p-4 animate-in fade-in">
     <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 max-w-sm w-full text-center shadow-2xl">
       <h3 className="text-xl font-bold text-white mb-2 font-serif">
         Abort Frequency?
@@ -340,7 +340,7 @@ const CardDisplay = ({
 };
 
 const RulesModal = ({ onClose }) => (
-  <div className="fixed inset-0 bg-black/95 z-[170] flex items-center justify-center p-0 md:p-4">
+  <div className="fixed inset-0 bg-black/95 z-170 flex items-center justify-center p-0 md:p-4">
     <div className="bg-gray-900 md:rounded-2xl w-full max-w-4xl h-full md:h-auto md:max-h-[90vh] overflow-hidden border border-fuchsia-500/30 shadow-2xl flex flex-col">
       <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-950">
         <div className="flex flex-col">
@@ -884,7 +884,7 @@ export default function SpectrumGame() {
     const isMeWinner = winner?.id === myId;
 
     return (
-      <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in duration-500">
+      <div className="fixed inset-0 z-200 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in duration-500">
         <div
           className={`w-full max-w-5xl ${
             isFinal
@@ -894,14 +894,14 @@ export default function SpectrumGame() {
         >
           {/* --- VICTORY HEADER (Only if Final) --- */}
           {isFinal && (
-            <div className="bg-gradient-to-b from-yellow-900/20 to-gray-900 p-8 text-center shrink-0 border-b border-gray-800 relative overflow-hidden">
+            <div className="bg-linear-to-b from-yellow-900/20 to-gray-900 p-8 text-center shrink-0 border-b border-gray-800 relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10"></div>
               <div className="relative z-10 flex flex-col items-center animate-in slide-in-from-top-10 duration-700">
                 <Trophy
                   size={64}
                   className="text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.6)] mb-4 animate-bounce"
                 />
-                <h1 className="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-200 to-yellow-600 font-serif tracking-[0.2em] uppercase mb-2">
+                <h1 className="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-linear-to-b from-yellow-200 to-yellow-600 font-serif tracking-[0.2em] uppercase mb-2">
                   {winner.name}
                 </h1>
                 <div className="inline-flex items-center gap-2 bg-yellow-950/40 border border-yellow-500/30 px-6 py-2 rounded-full">
@@ -1368,7 +1368,7 @@ export default function SpectrumGame() {
             size={64}
             className="text-fuchsia-500 mx-auto mb-4 animate-bounce drop-shadow-[0_0_20px_rgba(217,70,239,0.4)]"
           />
-          <h1 className="text-5xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-fuchsia-300 to-fuchsia-600 font-serif tracking-[0.2em]">
+          <h1 className="text-5xl md:text-7xl font-black text-transparent bg-clip-text bg-linear-to-b from-fuchsia-300 to-fuchsia-600 font-serif tracking-[0.2em]">
             SPECTRUM
           </h1>
           <p className="text-white-400/60 tracking-[0.3em] uppercase mt-2">
@@ -1585,7 +1585,7 @@ export default function SpectrumGame() {
           />
         )}
 
-        <div className="h-14 bg-gray-950/90 border-b border-fuchsia-900/30 flex items-center justify-between px-4 z-[160] backdrop-blur-md sticky top-0">
+        <div className="h-14 bg-gray-950/90 border-b border-fuchsia-900/30 flex items-center justify-between px-4 z-160 backdrop-blur-md sticky top-0">
           <div className="flex items-center gap-2 font-serif font-black text-fuchsia-500 tracking-[0.2em]">
             SPECTRUM{" "}
             <span className="text-[10px] text-gray-500 font-sans tracking-widest ml-1 opacity-70">
@@ -1841,7 +1841,7 @@ export default function SpectrumGame() {
         </div>
 
         {showLogs && (
-          <div className="fixed top-16 right-4 w-64 max-h-60 bg-gray-900/95 border border-gray-700 rounded-xl z-[155] overflow-y-auto p-2 shadow-2xl">
+          <div className="fixed top-16 right-4 w-64 max-h-60 bg-gray-900/95 border border-gray-700 rounded-xl z-155 overflow-y-auto p-2 shadow-2xl">
             <div className="bg-gray-900 border border-gray-800 w-full max-w-md h-[60vh] rounded-2xl flex flex-col shadow-2xl overflow-hidden">
               <div className="p-4 bg-gray-950 flex justify-between items-center border-b border-gray-800">
                 <span className="font-serif font-black text-fuchsia-500 tracking-widest uppercase text-sm">
@@ -1872,7 +1872,7 @@ export default function SpectrumGame() {
         )}
 
         {gameState.status === "finished" && (
-          <div className="fixed inset-0 top-14 bg-black/95 z-[150] flex flex-col items-center justify-center p-4 backdrop-blur-2xl">
+          <div className="fixed inset-0 top-14 bg-black/95 z-150 flex flex-col items-center justify-center p-4 backdrop-blur-2xl">
             <div className="relative mb-10">
               <Trophy
                 size={100}
