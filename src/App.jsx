@@ -647,6 +647,19 @@ export default function SpectrumGame() {
     });
 
     const isNextRound = gameState.status === "playing";
+    let nextStarterIndex;
+
+    // --- CHANGED LOGIC START ---
+    if (isNextRound) {
+      // Ongoing game: Next player starts (Sequential Rotation)
+      // We retrieve who started the PREVIOUS round, defaulting to 0 if undefined
+      const prevStarter = gameState.roundStarterIdx ?? 0;
+      nextStarterIndex = (prevStarter + 1) % playerCount;
+    } else {
+      // New Game: Random player starts
+      nextStarterIndex = Math.floor(Math.random() * playerCount);
+    }
+    // --- CHANGED LOGIC END ---
 
     await updateDoc(
       doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId),
@@ -656,7 +669,9 @@ export default function SpectrumGame() {
         players,
         trick: [],
         leadSuit: null,
-        turnIndex: 0,
+        // Update both the actual turn and the tracker for the round starter
+        turnIndex: nextStarterIndex, 
+        roundStarterIdx: nextStarterIndex,
         roundResult: null, // This clears the modal
         roundCount: isNextRound ? increment(1) : gameState.roundCount,
         logs: arrayUnion({
@@ -733,6 +748,10 @@ export default function SpectrumGame() {
         ready: false,
       };
     });
+
+    // --- CHANGED LOGIC: Random start for Reboot ---
+    const randomStarter = Math.floor(Math.random() * playerCount);
+
     await updateDoc(
       doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId),
       {
@@ -741,7 +760,8 @@ export default function SpectrumGame() {
         players: resetPlayers,
         trick: [],
         leadSuit: null,
-        turnIndex: 0,
+        turnIndex: randomStarter, // Random start
+        roundStarterIdx: randomStarter, // Save reference
         roundCount: 1,
         reserve: 0,
         roundResult: null,
