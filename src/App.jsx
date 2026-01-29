@@ -55,11 +55,11 @@ const firebaseConfig =
     ? JSON.parse(__firebase_config)
     : {
         apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-        authDomain: "game-hub-ff8aa.firebaseapp.com",
+        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
         projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-        storageBucket: "game-hub-ff8aa.firebasestorage.app",
-        messagingSenderId: "586559578902",
-        appId: "1:586559578902:web:2f012b1619cb4ef46aa637"
+        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+        appId: import.meta.env.VITE_FIREBASE_APP_ID,
       };
 
 const app = initializeApp(firebaseConfig);
@@ -232,8 +232,8 @@ const LeaveConfirmModal = ({
         {isHost
           ? "WARNING: As Host, shutting down the server will disconnect all users."
           : inGame
-          ? "Leaving now will destabilize the session for all observers!"
-          : "Disconnecting from the backroom..."}
+            ? "Leaving now will destabilize the session for all observers!"
+            : "Disconnecting from the backroom..."}
       </p>
       <div className="flex flex-col gap-3">
         <button
@@ -429,7 +429,7 @@ const RulesModal = ({ onClose }) => (
 export default function SpectrumGame() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState("menu");
-  
+
   const [roomCodeInput, setRoomCodeInput] = useState("");
   const [roomId, setRoomId] = useState("");
   const [gameState, setGameState] = useState(null);
@@ -445,7 +445,7 @@ export default function SpectrumGame() {
 
   //read and fill global name
   const [playerName, setPlayerName] = useState(
-    () => localStorage.getItem("gameHub_playerName") || ""
+    () => localStorage.getItem("gameHub_playerName") || "",
   );
   //set global name for all game
   useEffect(() => {
@@ -464,8 +464,6 @@ export default function SpectrumGame() {
     const unsubscribe = onAuthStateChanged(auth, setUser);
     return () => unsubscribe();
   }, []);
-
-  
 
   // --- Session Restoration ---
   useEffect(() => {
@@ -502,7 +500,7 @@ export default function SpectrumGame() {
           localStorage.removeItem("spectrum_roomId");
           setError("Synchronicity Terminated (Room Closed)");
         }
-      }
+      },
     );
     return () => unsub();
   }, [roomId, user]);
@@ -562,7 +560,7 @@ export default function SpectrumGame() {
     };
     await setDoc(
       doc(db, "artifacts", APP_ID, "public", "data", "rooms", newId),
-      initialData
+      initialData,
     );
     localStorage.setItem("spectrum_roomId", newId);
     setRoomId(newId);
@@ -579,7 +577,7 @@ export default function SpectrumGame() {
       "public",
       "data",
       "rooms",
-      roomCodeInput
+      roomCodeInput,
     );
     const snap = await getDoc(ref);
     if (!snap.exists()) {
@@ -670,7 +668,7 @@ export default function SpectrumGame() {
         trick: [],
         leadSuit: null,
         // Update both the actual turn and the tracker for the round starter
-        turnIndex: nextStarterIndex, 
+        turnIndex: nextStarterIndex,
         roundStarterIdx: nextStarterIndex,
         roundResult: null, // This clears the modal
         roundCount: isNextRound ? increment(1) : gameState.roundCount,
@@ -680,7 +678,7 @@ export default function SpectrumGame() {
           }`,
           type: "neutral",
         }),
-      }
+      },
     );
   };
 
@@ -717,7 +715,7 @@ export default function SpectrumGame() {
             type: "neutral",
           },
         ],
-      }
+      },
     );
   };
 
@@ -771,7 +769,7 @@ export default function SpectrumGame() {
             type: "neutral",
           },
         ],
-      }
+      },
     );
     setShowLeaveConfirm(false);
   };
@@ -779,24 +777,24 @@ export default function SpectrumGame() {
   const setPlayerReady = async () => {
     if (!gameState) return;
     const updatedPlayers = gameState.players.map((p) =>
-      p.id === user.uid ? { ...p, ready: true } : p
+      p.id === user.uid ? { ...p, ready: true } : p,
     );
     await updateDoc(
       doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId),
       {
         players: updatedPlayers,
-      }
+      },
     );
   };
 
   const handleRoundReady = async () => {
     if (!gameState) return;
     const updatedPlayers = gameState.players.map((p) =>
-      p.id === user.uid ? { ...p, ready: true } : p
+      p.id === user.uid ? { ...p, ready: true } : p,
     );
     await updateDoc(
       doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId),
-      { players: updatedPlayers }
+      { players: updatedPlayers },
     );
   };
 
@@ -833,7 +831,7 @@ export default function SpectrumGame() {
         triggerFeedback(
           "failure",
           "INVALID MASK",
-          "Cannot mask if able to follow."
+          "Cannot mask if able to follow.",
         );
         return;
       }
@@ -872,7 +870,7 @@ export default function SpectrumGame() {
         leadSuit: newLeadSuit,
         turnIndex: nextTurn,
         logs: arrayUnion({ text: logText, type: "neutral" }),
-      }
+      },
     );
     setPlayMode("NORMAL");
   };
@@ -1067,8 +1065,8 @@ export default function SpectrumGame() {
                   isFinal
                     ? "bg-yellow-600 hover:bg-yellow-500 text-white shadow-lg shadow-yellow-900/20"
                     : allGuestsReady
-                    ? "bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg"
-                    : "bg-gray-800 text-gray-600 cursor-not-allowed opacity-50"
+                      ? "bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg"
+                      : "bg-gray-800 text-gray-600 cursor-not-allowed opacity-50"
                 }`}
               >
                 {isFinal ? (
@@ -1094,15 +1092,15 @@ export default function SpectrumGame() {
                   isFinal
                     ? "bg-gray-800 text-gray-500 cursor-default" // Guest view on final screen
                     : me?.ready
-                    ? "bg-green-900/30 border border-green-500/50 text-green-500 cursor-default"
-                    : "bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg animate-pulse"
+                      ? "bg-green-900/30 border border-green-500/50 text-green-500 cursor-default"
+                      : "bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg animate-pulse"
                 }`}
               >
                 {isFinal
                   ? "Awaiting Host..."
                   : me?.ready
-                  ? "Standing By"
-                  : "Signal Ready"}
+                    ? "Standing By"
+                    : "Signal Ready"}
               </button>
             )}
           </div>
@@ -1124,12 +1122,12 @@ export default function SpectrumGame() {
       const valid = trick.filter(
         (t) =>
           (t.suit === leadSuit && !t.faceDown) ||
-          (t.faceDown && leadSuit === "MAGENTA")
+          (t.faceDown && leadSuit === "MAGENTA"),
       );
       if (valid.length > 0) {
         highestVal = Math.max(...valid.map((t) => (t.faceDown ? 5 : t.val)));
         winnerId = valid.find(
-          (t) => (t.faceDown ? 5 : t.val) === highestVal
+          (t) => (t.faceDown ? 5 : t.val) === highestVal,
         ).playerId;
       }
     }
@@ -1257,8 +1255,8 @@ export default function SpectrumGame() {
           a.busted === b.busted
             ? b.chipsTotal - a.chipsTotal
             : a.busted
-            ? 1
-            : -1
+              ? 1
+              : -1,
         );
 
       // --- FIX STARTS HERE ---
@@ -1291,7 +1289,7 @@ export default function SpectrumGame() {
             text: `--- Phase ${gameState.roundCount} Complete ---`,
             type: "neutral",
           }),
-        }
+        },
       );
     } else {
       // Normal Trick End
@@ -1306,7 +1304,7 @@ export default function SpectrumGame() {
             text: `✅ Trick secured by ${updatedPlayers[winnerIdx].name}`,
             type: "success",
           }),
-        }
+        },
       );
     }
   };
@@ -1334,12 +1332,12 @@ export default function SpectrumGame() {
     if (!gameState || gameState.hostId !== user.uid) return;
 
     const newPlayers = gameState.players.filter(
-      (p) => p.id !== playerIdToRemove
+      (p) => p.id !== playerIdToRemove,
     );
 
     await updateDoc(
       doc(db, "artifacts", APP_ID, "public", "data", "rooms", roomId),
-      { players: newPlayers }
+      { players: newPlayers },
     );
   };
 
@@ -1596,7 +1594,7 @@ export default function SpectrumGame() {
                   deck: [], // <--- Clear the deck
                   trick: [], // <--- Clear any active trick
                   logs: [], // <--- Optional: Clear logs for a fresh start
-                }
+                },
               );
               setShowLeaveConfirm(false);
             }}
@@ -1879,8 +1877,8 @@ export default function SpectrumGame() {
                       l.type === "success"
                         ? "border-fuchsia-500 text-fuchsia-300"
                         : l.type === "danger"
-                        ? "border-red-500 text-red-300"
-                        : "border-gray-700 text-gray-500"
+                          ? "border-red-500 text-red-300"
+                          : "border-gray-700 text-gray-500"
                     }`}
                   >
                     {l.text}
@@ -1992,7 +1990,7 @@ export default function SpectrumGame() {
                             "public",
                             "data",
                             "rooms",
-                            roomId
+                            roomId,
                           ),
                           {
                             status: "lobby",
@@ -2000,7 +1998,7 @@ export default function SpectrumGame() {
                             roundResult: null,
                             reserve: 0,
                             players: resetPlayers,
-                          }
+                          },
                         );
                         setShowLeaveConfirm(false);
                       }}
