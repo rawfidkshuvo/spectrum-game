@@ -535,7 +535,11 @@ export default function SpectrumGame() {
   const createRoom = async () => {
     if (!playerName) return setError("Identifier Required");
     setLoading(true);
-    const newId = Math.random().toString(36).substring(2, 7).toUpperCase();
+    const chars = "123456789ABCDEFGHIJKLMNPQRSTUVWXYZ";
+    let newId = "";
+    for (let i = 0; i < 6; i++) {
+      newId += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
     const initialData = {
       roomId: newId,
       hostId: user.uid,
