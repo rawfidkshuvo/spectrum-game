@@ -47,6 +47,7 @@ import {
   Battery,
   Hammer,
   Trash2,
+  Copy,
 } from "lucide-react";
 
 // --- Firebase Config & Init ---
@@ -1328,6 +1329,21 @@ export default function SpectrumGame() {
     setShowLeaveConfirm(false);
   };
 
+  const copyToClipboard = () => {
+    try {
+      navigator.clipboard.writeText(roomId);
+      triggerFeedback("neutral", "COPIED!", "", CheckCircle);
+    } catch (e) {
+      const el = document.createElement("textarea");
+      el.value = roomId;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      triggerFeedback("neutral", "COPIED!", "", CheckCircle);
+    }
+  };
+
   const kickPlayer = async (playerIdToRemove) => {
     if (!gameState || gameState.hostId !== user.uid) return;
 
@@ -1460,9 +1476,20 @@ export default function SpectrumGame() {
         <SpectrumLogoBig />
         <div className="z-10 w-full max-w-lg bg-gray-900/95 backdrop-blur-xl p-8 rounded-2xl border border-fuchsia-900/30 shadow-2xl">
           <div className="flex justify-between items-center mb-8 border-b border-gray-800 pb-4">
-            <h2 className="text-xl font-serif text-fuchsia-500 tracking-wider">
-              Frequency: <span className="text-white font-mono">{roomId}</span>
-            </h2>
+            {/* Grouping Title and Copy Button together on the left */}
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-serif text-fuchsia-500 tracking-wider">
+                Frequency:{" "}
+                <span className="text-white font-mono">{roomId}</span>
+              </h2>
+              <button
+                onClick={copyToClipboard}
+                className="p-2 hover:bg-white/10 rounded-full transition-colors text-gray-400 hover:text-white"
+                title="Copy Room ID"
+              >
+                <Copy size={16} />
+              </button>
+            </div>
             <button
               onClick={() => setShowLeaveConfirm(true)}
               className="p-2 bg-red-900/20 hover:bg-red-900/40 rounded text-red-400 transition-colors"
