@@ -1433,7 +1433,7 @@ export default function SpectrumGame() {
       <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans">
         <FloatingBackground />
         {showRules && <RulesModal onClose={() => setShowRules(false)} />}
-        <div className="z-10 text-center mb-10 animate-in fade-in zoom-in duration-700">
+        <div className="z-10 text-center mb-10">
           <Target
             size={64}
             className="text-fuchsia-500 mx-auto mb-4 animate-bounce drop-shadow-[0_0_20px_rgba(217,70,239,0.4)]"
