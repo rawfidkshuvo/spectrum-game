@@ -1805,7 +1805,7 @@ export default function SpectrumGame() {
               {gameState.trick.map((c, idx) => (
                 <div
                   key={idx}
-                  className="animate-in zoom-in slide-in-from-bottom-4 duration-500"
+                  className="animate-in zoom-in slide-in-from-bottom-4 duration-500 flex flex-col items-center"
                 >
                   <div className="text-[10px] text-gray-500 uppercase font-black text-center mb-1 tracking-tighter truncate w-24">
                     {c.playerName}
@@ -1813,6 +1813,7 @@ export default function SpectrumGame() {
                   <CardDisplay {...c} small />
                 </div>
               ))}
+
               {gameState.trick.length === 0 && !isRoundOver && (
                 <div className="text-gray-800 uppercase tracking-[0.5em] font-black text-center opacity-40 select-none flex flex-col items-center">
                   <Activity size={64} className="mb-4 text-fuchsia-900" />
@@ -1820,6 +1821,7 @@ export default function SpectrumGame() {
                 </div>
               )}
             </div>
+
             {gameState.leadSuit && !isRoundOver && (
               <div className="mt-8 bg-gray-900/80 border border-fuchsia-500/20 px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] backdrop-blur-md">
                 Protocol:{" "}
